@@ -1,157 +1,84 @@
-# Jellyfish Frontend (English)
+# Jellyfish AI Short Drama Studio
 
 <p align="center">
   <img src="./logo.svg" alt="Jellyfish Logo" width="160" />
 </p>
 
 <p align="center">
-  <a href="./README.en.md">English</a> ·
-  <a href="./README.zh-CN.md">简体中文</a> ·
-  <a href="./README.md">Entry</a>
+  <a href="./README.md">简体中文</a> ·
+  <a href="./README.en.md">English</a>
 </p>
 
-A modern frontend starter built with **Vite + React + TypeScript**, integrated with Tailwind CSS and Ant Design.
+An end-to-end production tool for AI-generated short dramas (vertical / micro drama).  
+From script input → storyboard extraction → character/scene/prop consistency management → AI video generation → post-production editing → one-click export.
 
-## Tech Stack
+## 📷 Screenshots
 
-- **Vite** - Next-generation frontend tooling
-- **React 18** - UI library
-- **TypeScript** - Type-safe JavaScript
-- **Tailwind CSS** - Utility-first CSS framework
-- **Ant Design** - Enterprise-grade UI system
-- **ESLint** - Linting and code quality
+| Project overview | Asset management |
+| --- | --- |
+| <img src="./static/img/docs/project.png" alt="Project overview" width="420" /> | <img src="./static/img/docs/%E8%B5%84%E4%BA%A7%E7%AE%A1%E7%90%86.png" alt="Asset management" width="420" /> |
 
-## Quick Start
+## ✨ Core Value
 
-### Install dependencies
+- **Consistency first**: global seed + unified style + asset reuse, tackling the #1 pain point in AI generation—character/scene drift
+- **Industrialized workflow**: from a narrative script to shootable storyboards, then to video clips—an end-to-end closed loop
+- **Visual & controllable**: WYSIWYG storyboard editor + fine-grained cinematography controls + real-time preview
+- **Asset reuse system**: full lifecycle management of characters/scenes/props/costumes/prompt templates
 
-```bash
-npm install
-```
+## 🚀 Key Features
 
-### Development
+| Module | Core capabilities | Highlights |
+| --- | --- | --- |
+| Project management | Create projects, unified global style/seed, dashboards, chapter stats | Global seed to reduce drift, enforced style inheritance |
+| Chapter production workspace | Script input → smart condense → storyboard extraction → storyboard editing → video generation → preview | Three-column layout, collapsible right panel, batch ops |
+| Storyboard fine controls | Shot size/angle/movement/emotion/duration/atmosphere/dialog/music/SFX/hidden shots | Separate prompts for first/last/key frames, multi-version management |
+| Advanced generation controls | Reference images across shots, ControlNet (pose/depth), lip-sync, model & duration selection | Controllable motion + lip-sync |
+| Asset management | Centralized character/scene/prop/costume management, smart extraction + manual linking + prompt templates | Dual-layer: per-project vs global asset library |
+| Prompt template library | Templates for storyboard/character/scene/video/music/SFX/composite prompts | One-click bootstrap for new chapters |
+| Post-production editing | Timeline editing, multi-track video/audio, drag-drop asset bin, final export | Edit full episodes directly from AI clips |
+| Agent workflows | Custom agents (plot extraction / character extraction / storyboard suggestions), visual orchestration & testing | Node-based workflow editor (Dify-like) |
+| Model management | Multi-provider management (OpenAI/Claude/Tongyi/Hunyuan...), model categories (text/image/video) | Per-category defaults, quick connection tests |
+| Generated media management | Unified preview for images/videos, tagging, filtering, batch export | Reuse high-quality assets efficiently |
 
-```bash
-npm run dev
-```
+## 🎯 Use Cases
 
-The dev server will start at `http://localhost:5173`.
+- Short drama / micro-drama creators
+- AI film studios producing at scale
+- Solo creators testing vertical dramas on a budget
+- Education & training teams producing teaching videos
+- Brands / e-commerce teams creating story-driven product promos
 
-### Build for production
+## 🛠 Tech Stack (Example)
 
-```bash
-npm run build
-```
+- Frontend: React 18 + TypeScript + Vite + Ant Design / Tailwind CSS
+- State: Redux Toolkit / Zustand
+- Workflow editor: React Flow
+- Video player: Video.js / Plyr
+- Rich text / code editor: Monaco Editor / React Quill
+- Backend (optional open-source part): Node.js / NestJS / FastAPI / Spring Boot
+- AI layer: multiple model APIs (OpenAI / Anthropic / Midjourney / Runway / Kling / Luma, etc.)
 
-Build output will be generated in the `dist` directory.
+## 🚧 Current Status
 
-### Lint
+Prototype in planning:
 
-```bash
-npm run lint
-```
+- [x] Project creation & global settings
+- [x] Core chapter workspace
+- [x] Asset & prompt template management
+- [x] Storyboard fine editing & video generation controls
+- [ ] Full post-production timeline (in progress)
+- [ ] Visual Agent orchestration (partially done)
+- [ ] Multi-model provider management (in progress)
+- [ ] Mobile adaptation (planned)
 
-### Preview production build
+## 📄 License
 
-```bash
-npm run preview
-```
+MIT License
 
-## Project Structure
+PRs, issues, and stars are welcome.  
+Also welcome collaborators who want to build an industry-leading AI short drama production tool together.
 
-```
-jellyfish/
-├── src/
-│   ├── components/        # React components
-│   │   ├── CustomButton.tsx
-│   │   ├── CustomCard.tsx
-│   │   └── index.ts
-│   ├── App.tsx            # App root component
-│   ├── main.tsx           # Entry
-│   └── index.css          # Global styles
-├── index.html             # HTML template
-├── vite.config.ts         # Vite config
-├── tsconfig.json          # TypeScript config
-├── tailwind.config.js     # Tailwind config
-├── postcss.config.js      # PostCSS config
-├── .eslintrc.json         # ESLint config
-└── package.json           # Dependencies & scripts
-```
+## 💬 Community & Feedback
 
-## Features
-
-✅ **Fast Vite DX** - HMR and rapid feedback  
-✅ **React 18** - Latest React features  
-✅ **TypeScript** - Strong typing and IDE hints  
-✅ **Tailwind CSS** - Build modern UI quickly  
-✅ **Ant Design** - Rich enterprise component library  
-✅ **ESLint** - Consistent code style and safety checks  
-
-## Configuration
-
-### Environment variables (Vite)
-
-Copy the example file and adjust as needed:
-
-```bash
-cp .env.example .env
-```
-
-Example keys (from `.env.example`):
-
-- `VITE_USE_MOCK=true`: enable mock data (MSW + local demo data)
-- `VITE_API_URL`: API base URL (optional)
-- `VITE_APP_TITLE`: app title (optional)
-
-Read values in code:
-
-```tsx
-const apiUrl = import.meta.env.VITE_API_URL
-```
-
-### Tailwind CSS
-
-`tailwind.config.js` is set up to:
-
-- Scan all `.tsx` files under `src`
-- Disable Tailwind preflight to reduce conflicts with Ant Design
-
-### Ant Design usage
-
-Import directly in components:
-
-```tsx
-import { Button, Card, Table } from 'antd'
-import { DeleteOutlined } from '@ant-design/icons'
-```
-
-## Development Notes
-
-1. **Component-first** - put reusable components in `src/components`
-2. **Types matter** - lean on TypeScript for correctness
-3. **Styling** - prefer Tailwind classes; use CSS for complex cases
-4. **Keep it clean** - run `npm run lint` regularly
-
-## FAQ
-
-### Q: How do I add a dependency?
-
-```bash
-npm install package-name
-```
-
-### Q: How do I customize the Ant Design theme?
-
-Customize your `theme` in `tailwind.config.js`, or use Ant Design's `ConfigProvider`.
-
-### Q: How do I manage environment variables?
-
-Create `.env` or `.env.local` at the project root, for example:
-
-```
-VITE_API_URL=https://api.example.com
-```
-
-## License
-
-MIT
+- GitHub Issues
+- WeChat group / Discord (TBD)
