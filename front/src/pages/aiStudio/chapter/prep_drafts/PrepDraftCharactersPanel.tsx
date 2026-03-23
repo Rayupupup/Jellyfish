@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Empty, Input, Modal, Pagination, Select, Space, Spin, Tag, message } from 'antd'
+import { Button, Empty, Input, Modal, Pagination, Select, Spin, Tag, message } from 'antd'
 import type { ImportDraftOccurrenceRead, ShotDialogLineRead, ShotDialogLineUpdate } from '../../../../services/generated'
 import { StudioEntitiesApi } from '../../../../services/studioEntities'
 import {
@@ -10,10 +10,13 @@ import {
 } from '../../../../services/generated'
 import { DisplayImageCard } from '../../assets/components/DisplayImageCard'
 import { resolveAssetUrl } from '../../assets/utils'
+import { makePrepDraftId, resolveCreatedEntityId, waitUntilStudioEntityReadable } from './prepDraftShared'
 
 type CharacterEntitySummary = { id: string; name: string; project_id?: string }
 
 type ActorLike = { id: string; name: string; description?: string | null; thumbnail?: string }
+
+type CharacterDisplayLike = { id: string; name: string; description?: string | null; thumbnail?: string }
 
 type Props = {
   projectId?: string
@@ -24,18 +27,79 @@ type Props = {
   characterNamesByShot: Record<string, string[]>
 }
 
-function makeId(prefix: string) {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
-  return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`
+/** 接口 page_size 上限为 100，需分页取全 */
+async function fetchAllShotDialogLinesForDetail(shotDetailId: string): Promise<ShotDialogLineRead[]> {
+  const pageSize = 100
+  let page = 1
+  const all: ShotDialogLineRead[] = []
+  while (true) {
+    const res = await StudioShotDialogLinesService.listShotDialogLinesApiV1StudioShotDialogLinesGet({
+      shotDetailId,
+      q: null,
+      order: 'index',
+      isDesc: false,
+      page,
+      pageSize,
+    })
+    const items = res.data?.items ?? []
+    all.push(...items)
+    const total = res.data?.pagination?.total ?? items.length
+    if (page * pageSize >= total || items.length === 0) break
+    page += 1
+  }
+  return all
+}
+
+function normalizeRoleName(s: string | null | undefined): string | null {
+  if (s == null) return null
+  const t = s.trim().replace(/\s+/g, ' ')
+  return t.length ? t : null
+}
+
+function buildMatchNames(...candidates: (string | null | undefined)[]): string[] {
+  const out = new Set<string>()
+  for (const c of candidates) {
+    const n = normalizeRoleName(c ?? undefined)
+    if (n) out.add(n)
+  }
+  return [...out]
+}
+
+function roleNamesMatchAny(field: string | null | undefined, matchNames: string[]): boolean {
+  const na = normalizeRoleName(field)
+  return na != null && matchNames.includes(na)
+}
+
+/** 常见剧本格式「角色名：台词」；无结构化 speaker_name 时用于回填说话者 */
+function implicitSpeakerFromDialogText(text: string): string | null {
+  const m = text.trim().match(/^([^：:]{1,64})[：:]\s*/u)
+  if (!m) return null
+  return normalizeRoleName(m[1])
+}
+
+/** 「对某某：」「向某某说」等，无 target_name 时尝试推断听者 */
+function implicitTargetFromDialogText(text: string): string | null {
+  const t = text.trim()
+  const m =
+    t.match(/^对([^：:，,。!！?？\s]{1,32})(?:[：:，,]|说)/u) ||
+    t.match(/^向([^：:，,。!！?？\s]{1,32})(?:[：:，,]|说)/u)
+  if (!m) return null
+  return normalizeRoleName(m[1])
+}
+
+function isCharacterIdUnset(id: string | null | undefined): boolean {
+  return id === null || id === undefined || id === ''
 }
 
 export function PrepDraftCharactersPanel({ projectId, chapterId, name, description, occurrences, characterNamesByShot }: Props) {
+  const [characterBusy, setCharacterBusy] = useState(false)
   const [characterExists, setCharacterExists] = useState<CharacterEntitySummary | null>(null)
+  const [existingCharacterDisplay, setExistingCharacterDisplay] = useState<CharacterDisplayLike | null>(null)
+  const [existingCharacterDisplayLoading, setExistingCharacterDisplayLoading] = useState(false)
   const [actorSearch, setActorSearch] = useState('')
   const [linkedActors, setLinkedActors] = useState<ActorLike[]>([])
   const [linkedActorsLoading, setLinkedActorsLoading] = useState(false)
   const [selectedActorId, setSelectedActorId] = useState<string | null>(null)
-  const [characterBusy, setCharacterBusy] = useState(false)
 
   const [actorPage, setActorPage] = useState(1)
   const ACTOR_PAGE_SIZE = 3
@@ -66,6 +130,7 @@ export function PrepDraftCharactersPanel({ projectId, chapterId, name, descripti
     setActorPage(1)
     setSelectedActorId(null)
     setCharacterExists(null)
+    setExistingCharacterDisplay(null)
 
     void (async () => {
       await Promise.all([refreshCharacterExists(), loadLinkedActors()])
@@ -143,8 +208,56 @@ export function PrepDraftCharactersPanel({ projectId, chapterId, name, descripti
     }
   }
 
-  const patchDialogLinesForCharacter = async (params: { shotIds: string[]; characterName: string; characterId: string }) => {
-    const { shotIds, characterName, characterId } = params
+  useEffect(() => {
+    if (!characterExists?.id) {
+      setExistingCharacterDisplay(null)
+      return
+    }
+    void (async () => {
+      setExistingCharacterDisplayLoading(true)
+      try {
+        const res = await StudioEntitiesApi.get('character', characterExists.id)
+        const d = res.data as CharacterDisplayLike | null | undefined
+        if (d?.id) {
+          setExistingCharacterDisplay({
+            id: d.id,
+            name: d.name ?? characterExists.name,
+            description: d.description ?? null,
+            thumbnail: d.thumbnail,
+          })
+        } else {
+          setExistingCharacterDisplay({
+            id: characterExists.id,
+            name: characterExists.name,
+            description: null,
+          })
+        }
+      } catch {
+        setExistingCharacterDisplay({
+          id: characterExists.id,
+          name: characterExists.name,
+          description: null,
+        })
+      } finally {
+        setExistingCharacterDisplayLoading(false)
+      }
+    })()
+  }, [characterExists?.id, characterExists?.name])
+
+  const patchDialogLinesForCharacter = async (params: {
+    shotIds: string[]
+    characterId: string
+    /** 归一化后的别名列表，用于命中 speaker_name / target_name / 台词推断 */
+    matchNames: string[]
+    /** 写入对白行的展示名（与资产角色名一致） */
+    dialogDisplayName: string
+  }) => {
+    const { shotIds, characterId, matchNames, dialogDisplayName: displayRaw } = params
+    const matchSet = [...new Set(matchNames.map((n) => normalizeRoleName(n)).filter(Boolean) as string[])]
+    if (matchSet.length === 0) return
+
+    const dialogDisplayName = normalizeRoleName(displayRaw) ?? matchSet[0] ?? displayRaw.trim()
+
     await Promise.all(
       shotIds.map(async (sid) => {
         const shotDetailsRes = await StudioShotDetailsService.listShotDetailsApiV1StudioShotDetailsGet({
@@ -153,37 +266,52 @@ export function PrepDraftCharactersPanel({ projectId, chapterId, name, descripti
           pageSize: 50,
         })
         const details = shotDetailsRes.data?.items ?? []
+        const detailIds = details.length > 0 ? details.map((d) => d.id) : [sid]
 
         await Promise.all(
-          details.map(async (detail) => {
-            const resLines = await StudioShotDialogLinesService.listShotDialogLinesApiV1StudioShotDialogLinesGet({
-              shotDetailId: detail.id,
-              page: 1,
-              pageSize: 200,
-            })
-            const lines = resLines.data?.items ?? []
+          detailIds.map(async (detailId) => {
+            const lines = await fetchAllShotDialogLinesForDetail(detailId)
 
             await Promise.all(
               lines.map(async (ln) => {
-                const speakerName = (ln as ShotDialogLineRead).speaker_name
-                const targetName = (ln as ShotDialogLineRead).target_name
-                const speakerEmpty = (ln as ShotDialogLineRead).speaker_character_id === null || (ln as ShotDialogLineRead).speaker_character_id === undefined
-                const targetEmpty = (ln as ShotDialogLineRead).target_character_id === null || (ln as ShotDialogLineRead).target_character_id === undefined
+                const line = ln as ShotDialogLineRead
+                const speakerName = line.speaker_name
+                const targetName = line.target_name
+                const text = line.text ?? ''
+                const speakerUnset = isCharacterIdUnset(line.speaker_character_id)
+                const targetUnset = isCharacterIdUnset(line.target_character_id)
+
+                const implicitSp = implicitSpeakerFromDialogText(text)
+                const implicitTg = implicitTargetFromDialogText(text)
+
+                const isSpeaker =
+                  speakerUnset &&
+                  (roleNamesMatchAny(speakerName, matchSet) ||
+                    (normalizeRoleName(speakerName) === null && implicitSp != null && matchSet.includes(implicitSp)))
+
+                const isListener =
+                  targetUnset &&
+                  (roleNamesMatchAny(targetName, matchSet) ||
+                    (normalizeRoleName(targetName) === null && implicitTg != null && matchSet.includes(implicitTg)))
 
                 const payload: ShotDialogLineUpdate = {}
                 let shouldPatch = false
-                if (speakerName === characterName && speakerEmpty) {
+                if (isSpeaker) {
                   payload.speaker_character_id = characterId
+                  payload.speaker_name = dialogDisplayName
                   shouldPatch = true
                 }
-                if (targetName === characterName && targetEmpty) {
+                if (isListener) {
                   payload.target_character_id = characterId
+                  payload.target_name = dialogDisplayName
                   shouldPatch = true
                 }
 
                 if (!shouldPatch) return
+                const lineId = Number(line.id)
+                if (!Number.isFinite(lineId)) return
                 return StudioShotDialogLinesService.updateShotDialogLineApiV1StudioShotDialogLinesLineIdPatch({
-                  lineId: (ln as ShotDialogLineRead).id,
+                  lineId,
                   requestBody: payload,
                 })
               }),
@@ -207,51 +335,88 @@ export function PrepDraftCharactersPanel({ projectId, chapterId, name, descripti
             <Spin size="small" />
           </div>
         ) : characterExists ? (
-          <Space wrap>
-            <Tag color="green">角色已存在</Tag>
-            <Button
-              type="primary"
-              onClick={async () => {
-                if (!projectId || !chapterId) return
-                setCharacterBusy(true)
-                try {
-                  const charId = characterExists.id as string
-                  await Promise.all(
-                    shotIds.map(async (sid) => {
-                      const idx = characterNamesByShot[sid]?.indexOf(name) ?? 0
-                      return StudioShotCharacterLinksService.upsertShotCharacterLinkApiV1StudioShotCharacterLinksPost({
-                        requestBody: {
-                          shot_id: sid,
-                          character_id: charId,
-                          index: idx,
-                          note: '',
-                        },
+          <div className="space-y-3">
+            <div className="max-w-sm">
+              {existingCharacterDisplayLoading ? (
+                <div style={{ padding: '8px 0' }}>
+                  <Spin size="small" />
+                </div>
+              ) : existingCharacterDisplay ? (
+                <DisplayImageCard
+                  title={<div className="truncate">{existingCharacterDisplay.name}</div>}
+                  imageUrl={resolveAssetUrl(existingCharacterDisplay.thumbnail)}
+                  imageAlt={existingCharacterDisplay.name}
+                  placeholder="未生成"
+                  enablePreview
+                  hoverable={false}
+                  extra={<Tag color="green">角色已存在</Tag>}
+                  meta={<div className="text-xs text-gray-500 line-clamp-2">{existingCharacterDisplay.description || '—'}</div>}
+                />
+              ) : null}
+            </div>
+            <div>
+              <Button
+                type="primary"
+                onClick={async () => {
+                  if (!projectId || !chapterId) return
+                  setCharacterBusy(true)
+                  try {
+                    const charId = characterExists.id as string
+                    await Promise.all(
+                      shotIds.map(async (sid) => {
+                        const idx = characterNamesByShot[sid]?.indexOf(name) ?? 0
+                        return StudioShotCharacterLinksService.upsertShotCharacterLinkApiV1StudioShotCharacterLinksPost({
+                          requestBody: {
+                            shot_id: sid,
+                            character_id: charId,
+                            index: idx,
+                            note: '',
+                          },
+                        })
+                      }),
+                    )
+
+                    try {
+                      await patchDialogLinesForCharacter({
+                        shotIds,
+                        characterId: charId,
+                        matchNames: buildMatchNames(name, existingCharacterDisplay?.name, characterExists.name),
+                        dialogDisplayName: existingCharacterDisplay?.name ?? characterExists.name ?? name,
                       })
-                    }),
-                  )
+                      message.success('已配置角色到镜头并回填对白')
+                    } catch {
+                      message.warning('已关联镜头，对白回填未完成，可再次点击本按钮重试')
+                    }
 
-                  await patchDialogLinesForCharacter({
-                    shotIds,
-                    characterName: name,
-                    characterId: charId,
-                  })
-
-                  message.success('已配置角色到镜头并回填对白')
-                  await refreshCharacterExists()
-                } catch {
-                  message.error('角色配置失败')
-                } finally {
-                  setCharacterBusy(false)
-                }
-              }}
-            >
-              配置到镜头并回填
-            </Button>
-          </Space>
+                    await refreshCharacterExists()
+                  } catch {
+                    message.error('关联镜头失败')
+                  } finally {
+                    setCharacterBusy(false)
+                  }
+                }}
+              >
+                配置到镜头并回填
+              </Button>
+            </div>
+          </div>
         ) : (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <Input placeholder="按名称过滤关联演员" value={actorSearch} onChange={(e) => setActorSearch(e.target.value)} allowClear style={{ width: 280 }} />
+              <Button
+                type="primary"
+                disabled={!selectedActorId}
+                onClick={() => {
+                  if (!selectedActorId) return
+                  setRoleNameDraft(name)
+                  setRoleDescDraft(description || '')
+                  setRoleActorIdDraft(selectedActorId ?? undefined)
+                  setRoleModalOpen(true)
+                }}
+              >
+                创建并配置
+              </Button>
             </div>
 
             <div style={{ marginTop: 12 }}>
@@ -288,22 +453,6 @@ export function PrepDraftCharactersPanel({ projectId, chapterId, name, descripti
                 </>
               )}
             </div>
-
-            <div style={{ marginTop: 12 }}>
-              <Button
-                type="primary"
-                disabled={!selectedActorId}
-                onClick={() => {
-                  if (!selectedActorId) return
-                  setRoleNameDraft(name)
-                  setRoleDescDraft(description || '')
-                  setRoleActorIdDraft(selectedActorId ?? undefined)
-                  setRoleModalOpen(true)
-                }}
-              >
-                创建并配置
-              </Button>
-            </div>
           </div>
         )}
       </div>
@@ -320,7 +469,7 @@ export function PrepDraftCharactersPanel({ projectId, chapterId, name, descripti
           }
           setRoleCreating(true)
           try {
-            const tmpId = makeId('char')
+            const tmpId = makePrepDraftId('char')
             const payload: Record<string, unknown> = {
               id: tmpId,
               project_id: projectId,
@@ -330,7 +479,8 @@ export function PrepDraftCharactersPanel({ projectId, chapterId, name, descripti
               costume_id: null,
             }
             const created = await StudioEntitiesApi.create('character', payload)
-            const charId: string = created.data?.id ?? tmpId
+            const charId = resolveCreatedEntityId(created, tmpId)
+            await waitUntilStudioEntityReadable('character', charId, '角色创建后无法读取，请稍后重试')
 
             await Promise.all(
               shotIds.map(async (sid) => {
@@ -346,17 +496,22 @@ export function PrepDraftCharactersPanel({ projectId, chapterId, name, descripti
               }),
             )
 
-            await patchDialogLinesForCharacter({
-              shotIds,
-              characterName: name,
-              characterId: charId,
-            })
+            try {
+              await patchDialogLinesForCharacter({
+                shotIds,
+                characterId: charId,
+                matchNames: buildMatchNames(name, roleNameDraft),
+                dialogDisplayName: roleNameDraft.trim() || name,
+              })
+              message.success('已创建角色并配置到镜头并回填对白')
+            } catch {
+              message.warning('角色已创建并关联镜头，对白回填未完成，可点击「配置到镜头并回填」重试')
+            }
 
-            message.success('已创建角色并配置到镜头并回填对白')
             await refreshCharacterExists()
             setRoleModalOpen(false)
           } catch {
-            message.error('创建/配置角色失败')
+            message.error('创建角色或关联镜头失败')
           } finally {
             setRoleCreating(false)
           }

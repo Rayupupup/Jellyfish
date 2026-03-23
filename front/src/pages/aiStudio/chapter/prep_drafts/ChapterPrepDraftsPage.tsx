@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Badge, Card, Empty, List, Spin, Tabs } from 'antd'
+import { Badge, Card, Collapse, Empty, List, Spin, Tabs } from 'antd'
 import type { TabsProps } from 'antd'
 import { useParams } from 'react-router-dom'
 
@@ -10,9 +10,10 @@ import type {
   ImportDraftType,
   ImportPropDraftRead,
   ImportSceneDraftRead,
+  ShotDialogLineRead,
   ShotRead,
 } from '../../../../services/generated'
-import { StudioPrepDraftsService, StudioShotsService } from '../../../../services/generated'
+import { StudioPrepDraftsService, StudioShotDialogLinesService, StudioShotsService } from '../../../../services/generated'
 
 import { PrepDraftCostumesPanel } from './PrepDraftCostumesPanel'
 import { PrepDraftCharactersPanel } from './PrepDraftCharactersPanel'
@@ -44,6 +45,28 @@ const tabKeyToDraftType: DraftTypeRecord = {
   costumes: 'costume',
 }
 
+async function fetchAllShotDialogLinesForDetail(shotDetailId: string): Promise<ShotDialogLineRead[]> {
+  const pageSize = 100
+  let page = 1
+  const all: ShotDialogLineRead[] = []
+  while (true) {
+    const res = await StudioShotDialogLinesService.listShotDialogLinesApiV1StudioShotDialogLinesGet({
+      shotDetailId,
+      q: null,
+      order: 'index',
+      isDesc: false,
+      page,
+      pageSize,
+    })
+    const items = res.data?.items ?? []
+    all.push(...items)
+    const total = res.data?.pagination?.total ?? items.length
+    if (page * pageSize >= total || items.length === 0) break
+    page += 1
+  }
+  return all
+}
+
 export default function ChapterPrepDraftsPage() {
   const { projectId, chapterId } = useParams<{ projectId?: string; chapterId?: string }>()
 
@@ -52,6 +75,8 @@ export default function ChapterPrepDraftsPage() {
   const [shots, setShots] = useState<ShotRead[]>([])
   const [draftItemsByKey, setDraftItemsByKey] = useState<Record<string, DraftItem>>({})
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [dialogueLinesByShot, setDialogueLinesByShot] = useState<Record<string, ShotDialogLineRead[]>>({})
+  const [dialogueLoading, setDialogueLoading] = useState(false)
 
   const tabs = useMemo<TabsProps['items']>(
     () => [
@@ -80,12 +105,88 @@ export default function ChapterPrepDraftsPage() {
   }, [activeTab, draftItemsByKey])
 
   useEffect(() => {
-    if (!itemsForActiveTab.length) return
+    if (!itemsForActiveTab.length) {
+      setSelectedKey(null)
+      return
+    }
     const cur = selectedKey ? draftItemsByKey[selectedKey] : null
     if (cur && cur.draftType === tabKeyToDraftType[activeTab]) return
     const next = itemsForActiveTab[0]
     if (next) setSelectedKey(`${next.draftType}:${next.name}`)
   }, [activeTab, draftItemsByKey, itemsForActiveTab, selectedKey])
+
+  const selectedDraftItem = useMemo(() => {
+    if (!selectedKey) return null
+    return draftItemsByKey[selectedKey] ?? null
+  }, [selectedKey, draftItemsByKey])
+
+  const dialogueOccurrenceKey = useMemo(() => {
+    if (!selectedDraftItem) return ''
+    return selectedDraftItem.occurrences.map((o) => o.occurrence.shot_id).join('\0')
+  }, [selectedDraftItem])
+
+  const dialogueShotOrder = useMemo(() => {
+    if (!selectedDraftItem) return []
+    const seen = new Set<string>()
+    const order: string[] = []
+    selectedDraftItem.occurrences.forEach((o) => {
+      const sid = o.occurrence.shot_id
+      if (!seen.has(sid)) {
+        seen.add(sid)
+        order.push(sid)
+      }
+    })
+    return order
+  }, [selectedDraftItem])
+
+  const dialogueLineTotal = useMemo(
+    () => Object.values(dialogueLinesByShot).reduce((n, arr) => n + arr.length, 0),
+    [dialogueLinesByShot],
+  )
+
+  useEffect(() => {
+    if (!selectedKey || !dialogueOccurrenceKey) {
+      setDialogueLinesByShot({})
+      setDialogueLoading(false)
+      return
+    }
+    const item = draftItemsByKey[selectedKey]
+    if (!item) {
+      setDialogueLinesByShot({})
+      setDialogueLoading(false)
+      return
+    }
+    const seen = new Set<string>()
+    const order: string[] = []
+    item.occurrences.forEach((o) => {
+      const sid = o.occurrence.shot_id
+      if (!seen.has(sid)) {
+        seen.add(sid)
+        order.push(sid)
+      }
+    })
+    if (order.length === 0) {
+      setDialogueLinesByShot({})
+      setDialogueLoading(false)
+      return
+    }
+    setDialogueLoading(true)
+    void (async () => {
+      try {
+        const entries = await Promise.all(
+          order.map(async (sid) => {
+            const lines = await fetchAllShotDialogLinesForDetail(sid)
+            return [sid, lines] as const
+          }),
+        )
+        setDialogueLinesByShot(Object.fromEntries(entries))
+      } catch {
+        setDialogueLinesByShot({})
+      } finally {
+        setDialogueLoading(false)
+      }
+    })()
+  }, [selectedKey, dialogueOccurrenceKey, draftItemsByKey])
 
   const characterNamesByShot = useMemo(() => {
     const map: Record<string, string[]> = {}
@@ -244,27 +345,101 @@ export default function ChapterPrepDraftsPage() {
                   <div className="font-medium text-base">{it.name}</div>
                   <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>{it.description || '（无描述）'}</div>
 
-                  <div style={{ marginTop: 10 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>出现于镜头</div>
-                    {it.occurrences.length === 0 ? (
-                      <Empty description="暂无出现记录" />
-                    ) : (
-                      <List
-                        size="small"
-                        dataSource={it.occurrences}
-                        renderItem={(o) => {
-                          const sh = shotById[o.occurrence.shot_id]
-                          return (
-                            <List.Item style={{ padding: '6px 0' }}>
-                              <div className="min-w-0">
-                                <div className="truncate">{sh ? `#${sh.index} ${sh.title ?? ''}` : o.occurrence.shot_id}</div>
-                              </div>
-                            </List.Item>
-                          )
-                        }}
-                      />
-                    )}
-                  </div>
+                  <Collapse
+                    ghost
+                    size="small"
+                    style={{ marginTop: 10 }}
+                    defaultActiveKey={['occurrences']}
+                    items={[
+                      {
+                        key: 'occurrences',
+                        label: (
+                          <span style={{ fontSize: 13, fontWeight: 600 }}>
+                            出现于镜头{it.occurrences.length > 0 ? `（${it.occurrences.length}）` : ''}
+                          </span>
+                        ),
+                        children:
+                          it.occurrences.length === 0 ? (
+                            <Empty description="暂无出现记录" />
+                          ) : (
+                            <List
+                              size="small"
+                              dataSource={it.occurrences}
+                              renderItem={(o) => {
+                                const sh = shotById[o.occurrence.shot_id]
+                                return (
+                                  <List.Item style={{ padding: '6px 0' }}>
+                                    <div className="min-w-0">
+                                      <div className="truncate">{sh ? `#${sh.index} ${sh.title ?? ''}` : o.occurrence.shot_id}</div>
+                                    </div>
+                                  </List.Item>
+                                )
+                              }}
+                            />
+                          ),
+                      },
+                      {
+                        key: 'dialogues',
+                        label: (
+                          <span style={{ fontSize: 13, fontWeight: 600 }}>
+                            相关对白
+                            {!dialogueLoading && dialogueLineTotal > 0 ? `（${dialogueLineTotal}）` : ''}
+                          </span>
+                        ),
+                        children:
+                          dialogueLoading ? (
+                            <div style={{ padding: '8px 0' }}>
+                              <Spin size="small" />
+                            </div>
+                          ) : dialogueShotOrder.length === 0 ? (
+                            <Empty description="暂无出现镜头，无法展示对白" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                          ) : dialogueLineTotal === 0 ? (
+                            <Empty description="这些镜头下暂无对白" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                          ) : (
+                            <div className="space-y-3">
+                              {dialogueShotOrder.map((sid) => {
+                                const sh = shotById[sid]
+                                const lines = dialogueLinesByShot[sid] ?? []
+                                const title = sh ? `#${sh.index} ${sh.title ?? ''}` : sid
+                                return (
+                                  <div key={sid}>
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(0,0,0,0.65)', marginBottom: 6 }}>{title}</div>
+                                    {lines.length === 0 ? (
+                                      <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.35)' }}>暂无对白</div>
+                                    ) : (
+                                      <List
+                                        size="small"
+                                        dataSource={lines}
+                                        renderItem={(ln) => {
+                                          const speaker =
+                                            (ln.speaker_name && ln.speaker_name.trim()) ||
+                                            (ln.speaker_character_id ? '（已绑定角色）' : null)
+                                          const target = ln.target_name?.trim()
+                                          const meta =
+                                            speaker || target ? (
+                                              <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)' }}>
+                                                {speaker ? `说者：${speaker}` : ''}
+                                                {speaker && target ? ' · ' : ''}
+                                                {target ? `听者：${target}` : ''}
+                                              </span>
+                                            ) : null
+                                          return (
+                                            <List.Item style={{ padding: '6px 0', display: 'block' }}>
+                                              {meta ? <div style={{ marginBottom: 4 }}>{meta}</div> : null}
+                                              <div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{ln.text}</div>
+                                            </List.Item>
+                                          )
+                                        }}
+                                      />
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          ),
+                      },
+                    ]}
+                  />
 
                   {activeTab === 'characters' ? (
                     <PrepDraftCharactersPanel
@@ -276,11 +451,29 @@ export default function ChapterPrepDraftsPage() {
                       characterNamesByShot={characterNamesByShot}
                     />
                   ) : activeTab === 'scenes' ? (
-                    <PrepDraftScenesPanel projectId={projectId} chapterId={chapterId} name={it.name} description={it.description} />
+                    <PrepDraftScenesPanel
+                      projectId={projectId}
+                      chapterId={chapterId}
+                      name={it.name}
+                      description={it.description}
+                      occurrences={it.occurrences}
+                    />
                   ) : activeTab === 'props' ? (
-                    <PrepDraftPropsPanel projectId={projectId} chapterId={chapterId} name={it.name} description={it.description} />
+                    <PrepDraftPropsPanel
+                      projectId={projectId}
+                      chapterId={chapterId}
+                      name={it.name}
+                      description={it.description}
+                      occurrences={it.occurrences}
+                    />
                   ) : activeTab === 'costumes' ? (
-                    <PrepDraftCostumesPanel projectId={projectId} chapterId={chapterId} name={it.name} description={it.description} />
+                    <PrepDraftCostumesPanel
+                      projectId={projectId}
+                      chapterId={chapterId}
+                      name={it.name}
+                      description={it.description}
+                      occurrences={it.occurrences}
+                    />
                   ) : null}
                 </div>
               )

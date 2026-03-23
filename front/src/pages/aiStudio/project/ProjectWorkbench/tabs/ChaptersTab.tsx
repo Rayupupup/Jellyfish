@@ -104,7 +104,22 @@ export function ChaptersTab() {
 
   const columns: TableColumnsType<Chapter> = [
     { title: '章节', dataIndex: 'index', key: 'index', width: 80, render: (v: number) => `第${v}集` },
-    { title: '标题', dataIndex: 'title', key: 'title', ellipsis: true },
+    {
+      title: '标题',
+      dataIndex: 'title',
+      key: 'title',
+      ellipsis: true,
+      render: (title: string, record) => (
+        <Button
+          type="link"
+          size="small"
+          style={{ paddingInline: 0 }}
+          onClick={() => openEditModal(record)}
+        >
+          {title || '未命名章节'}
+        </Button>
+      ),
+    },
     { title: '分镜数', dataIndex: 'storyboardCount', key: 'storyboardCount', width: 90 },
     {
       title: '状态',
@@ -122,9 +137,6 @@ export function ChaptersTab() {
       width: 320,
       render: (_, record) => (
         <Space>
-          <Button type="link" size="small" onClick={() => openEditModal(record)}>
-            编辑
-          </Button>
           <Button
             type="link"
             size="small"
