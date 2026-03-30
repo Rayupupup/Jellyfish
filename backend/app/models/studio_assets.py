@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.models.base import TimestampMixin
-from app.models.types import ProjectVisualStyle
+from app.models.types import ProjectStyle, ProjectVisualStyle
 
 
 class Scene(Base, TimestampMixin):
@@ -18,6 +18,7 @@ class Scene(Base, TimestampMixin):
     id: Mapped[str] = mapped_column(String(64), primary_key=True, comment="ID")
     name: Mapped[str] = mapped_column(String(255), nullable=False, comment="名称")
     description: Mapped[str] = mapped_column(Text, nullable=False, default="", comment="描述")
+    style: Mapped[ProjectStyle] = mapped_column(String(32), nullable=False, comment="题材/风格")
     view_count: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
@@ -61,6 +62,7 @@ class Prop(Base, TimestampMixin):
     id: Mapped[str] = mapped_column(String(64), primary_key=True, comment="ID")
     name: Mapped[str] = mapped_column(String(255), nullable=False, comment="名称")
     description: Mapped[str] = mapped_column(Text, nullable=False, default="", comment="描述")
+    style: Mapped[ProjectStyle] = mapped_column(String(32), nullable=False, comment="题材/风格")
     view_count: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
@@ -109,6 +111,7 @@ class Costume(Base, TimestampMixin):
     id: Mapped[str] = mapped_column(String(64), primary_key=True, comment="ID")
     name: Mapped[str] = mapped_column(String(255), nullable=False, comment="名称")
     description: Mapped[str] = mapped_column(Text, nullable=False, default="", comment="描述")
+    style: Mapped[ProjectStyle] = mapped_column(String(32), nullable=False, comment="题材/风格")
     view_count: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
@@ -158,6 +161,7 @@ class Actor(Base, TimestampMixin):
     id: Mapped[str] = mapped_column(String(64), primary_key=True, comment="ID")
     name: Mapped[str] = mapped_column(String(255), nullable=False, comment="名称")
     description: Mapped[str] = mapped_column(Text, nullable=False, default="", comment="描述")
+    style: Mapped[ProjectStyle] = mapped_column(String(32), nullable=False, comment="题材/风格")
     view_count: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
@@ -217,6 +221,7 @@ class Character(Base, TimestampMixin):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, comment="角色名称")
     description: Mapped[str] = mapped_column(Text, nullable=False, default="", comment="角色描述")
+    style: Mapped[ProjectStyle] = mapped_column(String(32), nullable=False, comment="题材/风格")
     visual_style: Mapped[ProjectVisualStyle] = mapped_column(
         String(16),
         nullable=False,

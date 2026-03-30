@@ -18,7 +18,18 @@ def _prepare_shot_frame_input(input_dict: dict[str, Any]) -> dict[str, Any]:
         out["mood_tags"] = ", ".join(str(t) for t in out["mood_tags"])
     else:
         out.setdefault("mood_tags", "")
-    for key in ("camera_shot", "angle", "movement", "atmosphere", "vfx_type", "vfx_note", "duration", "scene_id", "dialog_summary"):
+    for key in (
+        "visual_style",
+        "camera_shot",
+        "angle",
+        "movement",
+        "atmosphere",
+        "vfx_type",
+        "vfx_note",
+        "duration",
+        "scene_id",
+        "dialog_summary",
+    ):
         if key not in out or out[key] is None:
             out[key] = ""
     out.setdefault("title", "")
@@ -28,6 +39,7 @@ def _prepare_shot_frame_input(input_dict: dict[str, Any]) -> dict[str, Any]:
 _SHOT_FRAME_INPUT_VARS = [
     "script_excerpt",
     "title",
+    "visual_style",
     "camera_shot",
     "angle",
     "movement",
@@ -50,6 +62,7 @@ _FIRST_FRAME_TEMPLATE = """你是一名分镜师。根据下列镜头信息，�
 ## 镜头信息
 剧本摘录：{script_excerpt}
 镜头标题：{title}
+画面表现形式：{visual_style}
 景别：{camera_shot}
 机位角度：{angle}
 运镜：{movement}
@@ -72,6 +85,7 @@ _LAST_FRAME_TEMPLATE = """你是一名分镜师。根据下列镜头信息，生
 ## 镜头信息
 剧本摘录：{script_excerpt}
 镜头标题：{title}
+画面表现形式：{visual_style}
 景别：{camera_shot}
 机位角度：{angle}
 运镜：{movement}
@@ -94,6 +108,7 @@ _KEY_FRAME_TEMPLATE = """你是一名分镜师。根据下列镜头信息，生�
 ## 镜头信息
 剧本摘录：{script_excerpt}
 镜头标题：{title}
+画面表现形式：{visual_style}
 景别：{camera_shot}
 机位角度：{angle}
 运镜：{movement}

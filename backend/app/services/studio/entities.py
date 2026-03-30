@@ -37,7 +37,7 @@ from app.schemas.studio.assets import (
 from app.schemas.studio.cast import ActorCreate, ActorRead, ActorUpdate, CharacterCreate, CharacterRead, CharacterUpdate
 from app.schemas.studio.cast_images import ActorImageRead
 
-ENTITY_ORDER_FIELDS = {"name", "visual_style", "created_at", "updated_at"}
+ENTITY_ORDER_FIELDS = {"name", "style", "visual_style", "created_at", "updated_at"}
 IMAGE_ORDER_FIELDS = {"id", "quality_level", "view_angle", "created_at", "updated_at"}
 DOWNLOAD_URL_TEMPLATE = "/api/v1/studio/files/{file_id}/download"
 DEFAULT_VIEW_ANGLES: tuple[AssetViewAngle, ...] = (
@@ -183,6 +183,7 @@ class StudioEntitiesService:
             "tags": obj.tags or [],
             "prompt_template_id": obj.prompt_template_id,
             "view_count": obj.view_count,
+            "style": obj.style,
             "visual_style": obj.visual_style,
             "thumbnail": thumbnail,
         }
@@ -192,6 +193,7 @@ class StudioEntitiesService:
         *,
         entity_type: str,
         q: str | None,
+        style: str | None,
         visual_style: str | None,
         order: str | None,
         is_desc: bool,
@@ -202,6 +204,8 @@ class StudioEntitiesService:
         spec = entity_spec(t)
         stmt = select(spec.model)
         stmt = apply_keyword_filter(stmt, q=q, fields=[spec.model.name, spec.model.description])
+        if style:
+            stmt = stmt.where(getattr(spec.model, "style") == style)
         if visual_style:
             stmt = stmt.where(getattr(spec.model, "visual_style") == visual_style)
         stmt = apply_order(stmt, model=spec.model, order=order, is_desc=is_desc, allow_fields=ENTITY_ORDER_FIELDS, default="created_at")

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from app.models.studio import AssetQualityLevel, AssetViewAngle, ProjectVisualStyle
+from app.models.studio import AssetQualityLevel, AssetViewAngle, ProjectStyle, ProjectVisualStyle
 
 
 class AssetBase(BaseModel):
@@ -14,6 +14,7 @@ class AssetBase(BaseModel):
     tags: list[str] = Field(default_factory=list, description="标签")
     prompt_template_id: str | None = Field(None, description="提示词模板 ID（可空）")
     view_count: int = Field(1, ge=1, description="计划为该资产生成的视角图片数量（不含分镜帧）")
+    style: ProjectStyle = Field(ProjectStyle.real_people_city, description="题材/风格")
     visual_style: ProjectVisualStyle = Field(ProjectVisualStyle.live_action, description="画面表现形式（现实/动漫等）")
 
 
@@ -24,6 +25,7 @@ class AssetCreate(BaseModel):
     tags: list[str] = Field(default_factory=list)
     prompt_template_id: str | None = None
     view_count: int = Field(1, ge=1)
+    style: ProjectStyle = ProjectStyle.real_people_city
     visual_style: ProjectVisualStyle = ProjectVisualStyle.live_action
 
 
@@ -33,6 +35,7 @@ class AssetUpdate(BaseModel):
     tags: list[str] | None = None
     prompt_template_id: str | None = None
     view_count: int | None = Field(None, ge=1)
+    style: ProjectStyle | None = None
     visual_style: ProjectVisualStyle | None = None
 
 

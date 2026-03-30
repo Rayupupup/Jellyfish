@@ -18,6 +18,7 @@ from app.core.task_manager import DeliveryMode, SqlAlchemyTaskStore, TaskManager
 from app.core.task_manager.types import TaskStatus
 from app.dependencies import get_db, get_llm
 from app.models.studio import Shot, ShotDetail
+from app.models.studio import Chapter
 from app.models.task_links import GenerationTaskLink
 from app.schemas.common import ApiResponse, success_response
 
@@ -59,6 +60,7 @@ async def create_shot_frame_prompt_task(
         select(Shot)
         .options(
             selectinload(Shot.detail).selectinload(ShotDetail.dialog_lines),
+            selectinload(Shot.chapter).selectinload(Chapter.project),
         )
         .where(Shot.id == body.shot_id)
     )
@@ -70,6 +72,10 @@ async def create_shot_frame_prompt_task(
 
     detail = shot.detail
     dialog_summary = "\n".join(line.text for line in (detail.dialog_lines or []) if line.text)
+
+    # 把项目层的画面表现形式注入到提示词生成链路里。
+    project = getattr(getattr(shot, "chapter", None), "project", None)
+    visual_style = str(getattr(project, "visual_style", "") or "")
     input_dict = {
         "script_excerpt": shot.script_excerpt or "",
         "title": shot.title or "",
@@ -83,6 +89,7 @@ async def create_shot_frame_prompt_task(
         "duration": detail.duration,
         "scene_id": detail.scene_id,
         "dialog_summary": dialog_summary,
+        "visual_style": visual_style,
     }
     run_args: dict = {
         "shot_id": body.shot_id,

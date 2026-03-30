@@ -30,26 +30,15 @@ import { useNavigate } from 'react-router-dom'
 import { projects as mockProjects, type Project } from '../../../mocks/data'
 import { StudioProjectsService } from '../../../services/generated'
 import type { ProjectRead, ProjectStyle } from '../../../services/generated'
+import {
+  PROJECT_STYLE_OPTIONS_BY_VISUAL,
+  ProjectVisualStyleAndStyleFields,
+  type ProjectVisualStyleChoice,
+} from './ProjectVisualStyleAndStyleFields'
 
 type ViewMode = 'grid' | 'compact' | 'large'
 type FilterTab = 'all' | 'inProgress' | 'completed' | 'mine' | 'recent'
 type SortKey = 'updatedAt' | 'name' | 'createdAt' | 'chapters'
-type VisualStyleChoice = '现实' | '动漫'
-
-const STYLE_OPTIONS_BY_VISUAL: Record<VisualStyleChoice, Array<{ value: string; label: string }>> = {
-  现实: [
-    { value: '真人都市', label: '真人都市' },
-    { value: '真人科幻', label: '真人科幻' },
-    { value: '真人古装', label: '真人古装' },
-  ],
-  动漫: [
-    { value: '动漫科幻', label: '动漫科幻' },
-    { value: '动漫古装', label: '动漫古装' },
-    { value: '动漫3D', label: '动漫3D' },
-    { value: '国漫', label: '国漫' },
-    { value: '水墨画', label: '水墨画' },
-  ],
-}
 
 const ProjectLobby: React.FC = () => {
   const navigate = useNavigate()
@@ -224,8 +213,8 @@ const ProjectLobby: React.FC = () => {
 
   const handleOpenCreate = () => {
     form.resetFields()
-    const defaultVisual: VisualStyleChoice = '现实'
-    const defaultStyle = STYLE_OPTIONS_BY_VISUAL[defaultVisual][0]?.value
+    const defaultVisual: ProjectVisualStyleChoice = '现实'
+    const defaultStyle = PROJECT_STYLE_OPTIONS_BY_VISUAL[defaultVisual][0]?.value
     form.setFieldsValue({
       visual_style: defaultVisual,
       style: defaultStyle,
@@ -239,7 +228,7 @@ const ProjectLobby: React.FC = () => {
     name: string
     description?: string
     style: string
-    visual_style: VisualStyleChoice
+    visual_style: ProjectVisualStyleChoice
     seed: number
     unifyStyle: boolean
   }) => {
@@ -730,28 +719,7 @@ const ProjectLobby: React.FC = () => {
           <Form.Item name="description" label="项目简介（选填）">
             <Input.TextArea rows={4} placeholder="项目简介与风格说明，建议 80–120 字" />
           </Form.Item>
-          <Form.Item name="visual_style" label="视觉风格" rules={[{ required: true }]}>
-            <Select
-              onChange={(v: VisualStyleChoice) => {
-                const nextStyle = STYLE_OPTIONS_BY_VISUAL[v]?.[0]?.value
-                form.setFieldValue('style', nextStyle)
-              }}
-              options={[
-                { value: '现实', label: '现实' },
-                { value: '动漫', label: '动漫' },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item noStyle shouldUpdate={(prev, next) => prev.visual_style !== next.visual_style}>
-            {({ getFieldValue }) => {
-              const visual = (getFieldValue('visual_style') as VisualStyleChoice | undefined) ?? '现实'
-              return (
-                <Form.Item name="style" label="视频风格" rules={[{ required: true }]}>
-                  <Select options={STYLE_OPTIONS_BY_VISUAL[visual]} />
-                </Form.Item>
-              )
-            }}
-          </Form.Item>
+          <ProjectVisualStyleAndStyleFields form={form} />
           <Form.Item
             name="seed"
             label="全局种子值"

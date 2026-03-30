@@ -10,7 +10,6 @@ import {
   InputNumber,
   Modal,
   Row,
-  Select,
   Space,
   Spin,
   Tag,
@@ -23,6 +22,7 @@ import type { TaskStatus } from '../../../../services/generated'
 import { listTaskLinksNormalized } from '../../../../services/filmTaskLinks'
 import { buildFileDownloadUrl } from '../utils'
 import { DisplayImageCard } from './DisplayImageCard'
+import { PROJECT_STYLE_OPTIONS_BY_VISUAL, ProjectVisualStyleAndStyleFields } from '../../project/ProjectVisualStyleAndStyleFields'
 
 const MAX_VIEW_COUNT = 4
 // 与后端 `AssetViewAngle`（backend/app/models/studio.py）一致的枚举值
@@ -41,6 +41,7 @@ export type AssetUpdate = {
   tags: string[]
   view_count: number
   visual_style: '现实' | '动漫'
+  style?: string
 }
 
 const DEFAULT_ANGLES: AssetViewAngle[] = ['FRONT', 'LEFT', 'RIGHT', 'BACK']
@@ -62,6 +63,7 @@ export type BaseAsset = {
   tags?: string[]
   view_count?: number
   visual_style?: '现实' | '动漫'
+  style?: string
 }
 
 export type BaseAssetImage = {
@@ -144,6 +146,7 @@ export function AssetEditPageBase<TAsset extends BaseAsset, TImage extends BaseA
   const [formTags, setFormTags] = useState('')
   const [formViewCount, setFormViewCount] = useState(1)
   const [formVisualStyle, setFormVisualStyle] = useState<'现实' | '动漫'>('现实')
+  const [formStyle, setFormStyle] = useState<string>(PROJECT_STYLE_OPTIONS_BY_VISUAL['现实'][0]?.value ?? '真人都市')
   const [savingBase, setSavingBase] = useState(false)
 
   const [smartDetectLoading, setSmartDetectLoading] = useState(false)
@@ -210,7 +213,11 @@ export function AssetEditPageBase<TAsset extends BaseAsset, TImage extends BaseA
       setFormName(nextAsset.name)
       setFormDesc(nextAsset.description ?? '')
       setFormTags((nextAsset.tags ?? []).join(', '))
-      setFormVisualStyle(nextAsset.visual_style ?? '现实')
+      {
+        const nextVisual = (nextAsset.visual_style ?? '现实') as '现实' | '动漫'
+        setFormVisualStyle(nextVisual)
+        setFormStyle((nextAsset.style as string | undefined) ?? PROJECT_STYLE_OPTIONS_BY_VISUAL[nextVisual]?.[0]?.value ?? '真人都市')
+      }
 
       const targetCount = clampViewCount(nextAsset.view_count)
       setFormViewCount(targetCount)
@@ -263,6 +270,7 @@ export function AssetEditPageBase<TAsset extends BaseAsset, TImage extends BaseA
         tags: normalizeTags(formTags),
         view_count: nextViewCount,
         visual_style: formVisualStyle,
+        style: formStyle,
       }
       const nextAsset = await updateAsset(assetId, payload)
       if (nextAsset) setAsset(nextAsset)
@@ -556,15 +564,14 @@ export function AssetEditPageBase<TAsset extends BaseAsset, TImage extends BaseA
                 </div>
                 <div>
                   <div className="text-gray-600 text-sm mb-1">视觉风格</div>
-                  <Select
-                    style={{ width: 200 }}
-                    value={formVisualStyle}
-                    onChange={(v) => setFormVisualStyle(v as '现实' | '动漫')}
+                  <ProjectVisualStyleAndStyleFields
                     disabled={smartDetectLoading || savingBase}
-                    options={[
-                      { value: '现实', label: '现实' },
-                      { value: '动漫', label: '动漫' },
-                    ]}
+                    visual_style={formVisualStyle}
+                    style={formStyle}
+                    onChange={(next) => {
+                      setFormVisualStyle(next.visual_style)
+                      setFormStyle(next.style)
+                    }}
                   />
                 </div>
                 <Button type="primary" onClick={() => void handleSaveBaseInfo()} loading={savingBase || smartDetectLoading}>

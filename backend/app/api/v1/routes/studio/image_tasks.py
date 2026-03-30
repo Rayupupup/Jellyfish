@@ -28,6 +28,7 @@ from app.models.studio import (
     AssetQualityLevel,
     Character,
     CharacterImage,
+    Chapter,
     Costume,
     CostumeImage,
     FileItem,
@@ -36,6 +37,7 @@ from app.models.studio import (
     PropImage,
     Scene,
     SceneImage,
+    Shot,
     ShotDetail,
     ShotCharacterLink,
     ShotFrameType,
@@ -386,6 +388,7 @@ async def _build_actor_prompt_and_refs(
             "name": actor.name,
             "description": actor.description,
             "tags": ", ".join(actor.tags or []),
+            "visual_style": actor.visual_style.value if hasattr(actor.visual_style, "value") else str(actor.visual_style),
             "view_angle": _map_view_angle_for_prompt(image_row.view_angle),
             "quality_level": image_row.quality_level,
             "format": image_row.format,
@@ -442,6 +445,7 @@ async def _build_asset_prompt_and_refs(
                 "name": asset.name,
                 "description": asset.description,
                 "tags": ", ".join(asset.tags or []),
+                "visual_style": asset.visual_style.value if hasattr(asset.visual_style, "value") else str(asset.visual_style),
                 "view_angle": _map_view_angle_for_prompt(image_row.view_angle),
                 "quality_level": image_row.quality_level,
                 "format": image_row.format,
@@ -482,6 +486,7 @@ async def _build_asset_prompt_and_refs(
                 "name": asset.name,
                 "description": asset.description,
                 "tags": ", ".join(asset.tags or []),
+                "visual_style": asset.visual_style.value if hasattr(asset.visual_style, "value") else str(asset.visual_style),
                 "view_angle": _map_view_angle_for_prompt(image_row.view_angle),
                 "quality_level": image_row.quality_level,
                 "format": image_row.format,
@@ -522,6 +527,7 @@ async def _build_asset_prompt_and_refs(
                 "name": asset.name,
                 "description": asset.description,
                 "tags": ", ".join(asset.tags or []),
+                "visual_style": asset.visual_style.value if hasattr(asset.visual_style, "value") else str(asset.visual_style),
                 "view_angle": _map_view_angle_for_prompt(image_row.view_angle),
                 "quality_level": image_row.quality_level,
                 "format": image_row.format,
@@ -571,6 +577,7 @@ async def _build_character_prompt_and_refs(
         variables={
             "name": character.name,
             "description": character.description,
+            "visual_style": character.visual_style.value if hasattr(character.visual_style, "value") else str(character.visual_style),
             "view_angle": _map_view_angle_for_prompt(image_row.view_angle),
             "quality_level": image_row.quality_level,
             "format": image_row.format,
@@ -630,9 +637,22 @@ async def _build_shot_frame_prompt_and_refs(
     shot_id: str,
     frame_type: ShotFrameType,
 ) -> tuple[str, list[str], ShotDetail]:
-    shot_detail = await db.get(ShotDetail, shot_id)
+    shot_stmt = (
+        select(ShotDetail)
+        .options(
+            selectinload(ShotDetail.shot).selectinload(Shot.chapter).selectinload(Chapter.project),
+        )
+        .where(ShotDetail.id == shot_id)
+    )
+    shot_detail = (await db.execute(shot_stmt)).scalar_one_or_none()
     if shot_detail is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ShotDetail not found")
+
+    project = getattr(getattr(getattr(shot_detail, "shot", None), "chapter", None), "project", None)
+    visual_style = (
+        project.visual_style.value if getattr(project, "visual_style", None) is not None and hasattr(project.visual_style, "value")
+        else str(getattr(project, "visual_style", "") or "")
+    )
 
     if frame_type == ShotFrameType.first:
         raw_prompt = (shot_detail.first_frame_prompt or "").strip()
@@ -712,6 +732,7 @@ async def _build_shot_frame_prompt_and_refs(
             "description": shot_detail.description,
             "atmosphere": shot_detail.atmosphere,
             "mood_tags": ", ".join(shot_detail.mood_tags or []),
+            "visual_style": visual_style,
             "camera_shot": shot_detail.camera_shot,
             "angle": shot_detail.angle,
             "movement": shot_detail.movement,

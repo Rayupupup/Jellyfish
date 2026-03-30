@@ -18,6 +18,7 @@ async def list_entities(
     entity_type: str,
     db: AsyncSession = Depends(get_db),
     q: str | None = Query(None, description="关键字，过滤 name/description"),
+    style: str | None = Query(None, description="题材/风格（单值）"),
     visual_style: str | None = Query(None, description="画面表现形式（单值：真人/动漫）"),
     order: str | None = Query(None),
     is_desc: bool = Query(False),
@@ -28,6 +29,7 @@ async def list_entities(
     payload, total = await service.list_entities(
         entity_type=entity_type,
         q=q,
+        style=style,
         visual_style=visual_style,
         order=order,
         is_desc=is_desc,

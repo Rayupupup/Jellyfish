@@ -17,6 +17,7 @@ export class StudioEntitiesService {
     public static listEntitiesApiV1StudioEntitiesEntityTypeGet({
         entityType,
         q,
+        style,
         visualStyle,
         order,
         isDesc = false,
@@ -28,6 +29,10 @@ export class StudioEntitiesService {
          * 关键字，过滤 name/description
          */
         q?: (string | null),
+        /**
+         * 题材/风格（单值）
+         */
+        style?: (string | null),
         /**
          * 画面表现形式（单值：真人/动漫）
          */
@@ -45,6 +50,7 @@ export class StudioEntitiesService {
             },
             query: {
                 'q': q,
+                'style': style,
                 'visual_style': visualStyle,
                 'order': order,
                 'is_desc': isDesc,

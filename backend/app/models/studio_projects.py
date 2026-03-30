@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import JSON, Boolean, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -8,6 +8,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base
 from app.models.base import TimestampMixin
 from app.models.types import ChapterStatus, ProjectStyle, ProjectVisualStyle
+
+if TYPE_CHECKING:
+    from app.models.studio_assets import Actor, Character, Costume, Prop, Scene
+    from app.models.studio_shots import Shot
 
 
 class Project(Base, TimestampMixin):
@@ -43,6 +47,7 @@ class Project(Base, TimestampMixin):
         back_populates="project",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        order_by="Character.id",
     )
     actor_links: Mapped[list["ProjectActorLink"]] = relationship(
         back_populates="project",

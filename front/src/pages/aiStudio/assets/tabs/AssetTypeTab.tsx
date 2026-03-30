@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Card, Input, InputNumber, Row, Col, Tag, Button, message, Modal, Space, Pagination, Select } from 'antd'
+import { Card, Input, InputNumber, Row, Col, Tag, Button, message, Modal, Space, Pagination } from 'antd'
 import { EditOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import { resolveAssetUrl } from '../utils'
 import { DisplayImageCard } from '../components/DisplayImageCard'
+import { PROJECT_STYLE_OPTIONS_BY_VISUAL, ProjectVisualStyleAndStyleFields } from '../../project/ProjectVisualStyleAndStyleFields'
 
 function normalizeTags(input: string): string[] {
   return input
@@ -76,6 +77,7 @@ export function AssetTypeTab({
   const [formTags, setFormTags] = useState('')
   const [formViewCount, setFormViewCount] = useState<number | null>(null)
   const [formVisualStyle, setFormVisualStyle] = useState<'现实' | '动漫'>('现实')
+  const [formStyle, setFormStyle] = useState<string>(PROJECT_STYLE_OPTIONS_BY_VISUAL['现实'][0]?.value ?? '真人都市')
 
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewUrl, setPreviewUrl] = useState('')
@@ -114,6 +116,7 @@ export function AssetTypeTab({
     setFormTags('')
     setFormViewCount(null)
     setFormVisualStyle('现实')
+    setFormStyle(PROJECT_STYLE_OPTIONS_BY_VISUAL['现实'][0]?.value ?? '真人都市')
     setEditOpen(true)
   }
 
@@ -123,7 +126,9 @@ export function AssetTypeTab({
     setFormDesc(asset.description ?? '')
     setFormTags((asset.tags ?? []).join(', '))
     setFormViewCount(asset.view_count ?? null)
-    setFormVisualStyle(((asset as any).visual_style as '现实' | '动漫' | undefined) ?? '现实')
+    const nextVisual = (((asset as any).visual_style as '现实' | '动漫' | undefined) ?? '现实') as '现实' | '动漫'
+    setFormVisualStyle(nextVisual)
+    setFormStyle(((asset as any).style as string | undefined) ?? PROJECT_STYLE_OPTIONS_BY_VISUAL[nextVisual]?.[0]?.value ?? '真人都市')
     setEditOpen(true)
   }
 
@@ -151,6 +156,7 @@ export function AssetTypeTab({
           tags: normalizeTags(formTags),
           view_count: nextViewCount,
           visual_style: formVisualStyle,
+          style: formStyle,
         })
         const normalizedNext = normalizeAsset(next)
         setAssets((prev) => prev.map((a) => (a.id === editing.id ? normalizedNext : a)))
@@ -163,6 +169,7 @@ export function AssetTypeTab({
           tags: normalizeTags(formTags),
           thumbnail: '',
           visual_style: formVisualStyle,
+          style: formStyle,
           ...(nextViewCount === null ? {} : { view_count: nextViewCount }),
         })
         message.success('已创建')
@@ -337,15 +344,13 @@ export function AssetTypeTab({
             />
           </div>
           <div>
-            <span className="text-gray-600 text-sm">视觉风格</span>
-            <Select
-              className="mt-1 w-full"
-              value={formVisualStyle}
-              onChange={(v) => setFormVisualStyle(v as '现实' | '动漫')}
-              options={[
-                { value: '现实', label: '现实' },
-                { value: '动漫', label: '动漫' },
-              ]}
+            <ProjectVisualStyleAndStyleFields
+              visual_style={formVisualStyle}
+              style={formStyle}
+              onChange={(next) => {
+                setFormVisualStyle(next.visual_style)
+                setFormStyle(next.style)
+              }}
             />
           </div>
         </div>

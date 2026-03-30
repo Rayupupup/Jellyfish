@@ -12,6 +12,7 @@ class ShotFramePromptInput(BaseModel):
 
     script_excerpt: str = Field(..., description="剧本摘录，对应 Shot.script_excerpt")
     title: str = Field("", description="镜头标题，对应 Shot.title")
+    visual_style: Optional[str] = Field(None, description="画面表现形式（现实/动漫等）")
     camera_shot: Optional[str] = Field(None, description="景别，如 ECU/CU/MS")
     angle: Optional[str] = Field(None, description="机位角度")
     movement: Optional[str] = Field(None, description="运镜方式")

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Card, Empty, Input, InputNumber, Modal, Pagination, Select, Space, Tag, message } from 'antd'
+import { Button, Card, Empty, Input, InputNumber, Modal, Pagination, Space, Tag, message } from 'antd'
 import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import { StudioEntitiesApi } from '../../../../services/studioEntities'
 import { useNavigate } from 'react-router-dom'
 import { resolveAssetUrl } from '../utils'
 import { DisplayImageCard } from '../components/DisplayImageCard'
+import { PROJECT_STYLE_OPTIONS_BY_VISUAL, ProjectVisualStyleAndStyleFields } from '../../project/ProjectVisualStyleAndStyleFields'
 
 export function ActorsTab() {
   const navigate = useNavigate()
@@ -22,6 +23,7 @@ export function ActorsTab() {
   const [formTags, setFormTags] = useState('')
   const [formViewCount, setFormViewCount] = useState<number | null>(null)
   const [formVisualStyle, setFormVisualStyle] = useState<'现实' | '动漫'>('现实')
+  const [formStyle, setFormStyle] = useState<string>(PROJECT_STYLE_OPTIONS_BY_VISUAL['现实'][0]?.value ?? '真人都市')
 
   const load = async (opts?: { page?: number; pageSize?: number; q?: string }) => {
     setLoading(true)
@@ -66,6 +68,7 @@ export function ActorsTab() {
     setFormTags('')
     setFormViewCount(null)
     setFormVisualStyle('现实')
+    setFormStyle(PROJECT_STYLE_OPTIONS_BY_VISUAL['现实'][0]?.value ?? '真人都市')
     setEditOpen(true)
   }
 
@@ -76,6 +79,10 @@ export function ActorsTab() {
     setFormTags((a.tags ?? []).join(', '))
     setFormViewCount(a.view_count ?? null)
     setFormVisualStyle((a.visual_style as '现实' | '动漫' | undefined) ?? '现实')
+    {
+      const nextVisual = ((a.visual_style as '现实' | '动漫' | undefined) ?? '现实') as '现实' | '动漫'
+      setFormStyle((a.style as string | undefined) ?? PROJECT_STYLE_OPTIONS_BY_VISUAL[nextVisual]?.[0]?.value ?? '真人都市')
+    }
     setEditOpen(true)
   }
 
@@ -94,6 +101,7 @@ export function ActorsTab() {
           tags: normalizeTags(formTags),
           view_count: formViewCount ?? undefined,
           visual_style: formVisualStyle,
+          style: formStyle,
           prompt_template_id: null,
         })
         message.success('创建成功')
@@ -109,6 +117,7 @@ export function ActorsTab() {
           tags: normalizeTags(formTags),
           view_count: formViewCount ?? null,
           visual_style: formVisualStyle,
+          style: formStyle,
         })
         message.success('更新成功')
       }
@@ -243,14 +252,13 @@ export function ActorsTab() {
           </div>
           <div>
             <div className="text-sm text-gray-600 mb-1">视觉风格</div>
-            <Select
-              className="w-full"
-              value={formVisualStyle}
-              onChange={(v) => setFormVisualStyle(v as '现实' | '动漫')}
-              options={[
-                { value: '现实', label: '现实' },
-                { value: '动漫', label: '动漫' },
-              ]}
+            <ProjectVisualStyleAndStyleFields
+              visual_style={formVisualStyle}
+              style={formStyle}
+              onChange={(next) => {
+                setFormVisualStyle(next.visual_style)
+                setFormStyle(next.style)
+              }}
             />
           </div>
         </div>
