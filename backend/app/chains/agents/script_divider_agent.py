@@ -17,12 +17,7 @@ _SCRIPT_DIVIDER_SYSTEM_PROMPT = """\
 - start_line、end_line
 - shot_name（镜头名称/镜头标题，分镜名；一句话描述该镜头画面/动作；不要把它当作场景名）
 - script_excerpt（镜头对应的剧本摘录/文本）
-- scene_name（场景名称，必须与 shots 中 scene_name 的含义一致；不要把 shot_name 当成 scene_name）
 - time_of_day
-- character_names_in_text（角色名/称呼，弱信息；稳定ID会在后续合并阶段统一分配）
-严格区分字段含义：
-- shot_name = 分镜名/镜头标题
-- scene_name = 场景名
 只输出 JSON，符合 ScriptDivisionResult 结构。
 """
 
@@ -34,6 +29,8 @@ SCRIPT_DIVIDER_PROMPT = PromptTemplate(
 
 class ScriptDividerAgent(AgentBase[ScriptDivisionResult]):
     """剧本自动分镜：输入完整剧本文本，输出分镜列表。"""
+
+    enable_thinking: bool = False
 
     @property
     def system_prompt(self) -> str:
@@ -110,12 +107,10 @@ class ScriptDividerAgent(AgentBase[ScriptDivisionResult]):
                     elif "shot_title" in shot_dict:
                         shot_dict["shot_name"] = str(shot_dict.pop("shot_title"))
                 shot_dict.setdefault("shot_name", "")
-                # 兼容旧字段：character_ids -> character_names_in_text（此阶段为弱信息）
-                if "character_ids" in shot_dict and "character_names_in_text" not in shot_dict:
-                    val = shot_dict.get("character_ids")
-                    if isinstance(val, list):
-                        shot_dict["character_names_in_text"] = [str(x) for x in val]
-                    shot_dict.pop("character_ids", None)
+                # 严格对齐 ShotDivision：移除已废弃的弱语义字段，避免 extra="forbid" 校验失败
+                shot_dict.pop("scene_name", None)
+                shot_dict.pop("character_names_in_text", None)
+                shot_dict.pop("character_ids", None)
                 shots.append(shot_dict)
             data["shots"] = shots
 

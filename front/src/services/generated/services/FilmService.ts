@@ -12,7 +12,6 @@ import type { ApiResponse_TaskStatusRead_ } from '../models/ApiResponse_TaskStat
 import type { ApiResponse_VideoPromptPreviewResponse_ } from '../models/ApiResponse_VideoPromptPreviewResponse_';
 import type { GenerationTaskLinkCreate } from '../models/GenerationTaskLinkCreate';
 import type { GenerationTaskLinkUpdate } from '../models/GenerationTaskLinkUpdate';
-import type { ImageGenerationTaskRequest } from '../models/ImageGenerationTaskRequest';
 import type { ShotFramePromptRequest } from '../models/ShotFramePromptRequest';
 import type { TaskLinkAdoptRequest } from '../models/TaskLinkAdoptRequest';
 import type { VideoGenerationTaskRequest } from '../models/VideoGenerationTaskRequest';
@@ -55,27 +54,6 @@ export class FilmService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/v1/film/tasks/video',
-            body: requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: `Validation Error`,
-            },
-        });
-    }
-    /**
-     * 图片生成（任务版）
-     * 创建图片生成任务并后台执行，结果通过 /tasks/{task_id}/result 获取。
-     * @returns ApiResponse_TaskCreated_ Successful Response
-     * @throws ApiError
-     */
-    public static createImageGenerationTaskApiV1FilmTasksImagesPost({
-        requestBody,
-    }: {
-        requestBody: ImageGenerationTaskRequest,
-    }): CancelablePromise<ApiResponse_TaskCreated_> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/film/tasks/images',
             body: requestBody,
             mediaType: 'application/json',
             errors: {

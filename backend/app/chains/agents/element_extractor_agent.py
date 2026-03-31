@@ -10,12 +10,11 @@ from app.chains.agents.base import AgentBase
 from app.schemas.skills.script_processing import StudioScriptExtractionDraft
 
 _SCRIPT_EXTRACTOR_SYSTEM_PROMPT = """\
-你是\"Studio 信息提取员\"。你的任务是：基于剧本文本与分镜结果，输出可直接导入 Studio 的草稿结构 StudioScriptExtractionDraft（注意：ID 由导入 API 生成，因此这里全部使用 name 做引用键）。
+你是\"Studio 信息提取员\"。你的任务是：基于分镜结果（以及可选的一致性检查输出），输出可直接导入 Studio 的草稿结构 StudioScriptExtractionDraft（注意：ID 由导入 API 生成，因此这里全部使用 name 做引用键）。
 
 输出 StudioScriptExtractionDraft：
 - project_id（必填）
 - chapter_id（必填）
-- script_text（必填）
 - characters: [{name, description, costume_name?, prop_names[], tags[]}]
 - scenes/props/costumes: [{name, description, tags[], prompt_template_id?, view_count}]
 - shots: [{index, title, script_excerpt, scene_name?, character_names[], prop_names[], costume_names[], dialogue_lines[], actions[]}]
@@ -39,7 +38,6 @@ _SCRIPT_EXTRACTOR_SYSTEM_PROMPT = """\
 输入：
 - project_id
 - chapter_id
-- script_text
 - script_division_json（ScriptDivisionResult）
 - consistency_json（可选）
 
@@ -47,20 +45,19 @@ _SCRIPT_EXTRACTOR_SYSTEM_PROMPT = """\
 """
 
 SCRIPT_EXTRACTOR_PROMPT = PromptTemplate(
-    input_variables=["project_id", "chapter_id", "script_text", "script_division_json", "consistency_json"],
+    input_variables=["project_id", "chapter_id", "script_division_json", "consistency_json"],
     template=(
         "## project_id\n{project_id}\n\n"
         "## chapter_id\n{chapter_id}\n\n"
         "## 一致性检查（可选）\n{consistency_json}\n\n"
         "## 分镜结果\n{script_division_json}\n\n"
-        "## 剧本文本\n{script_text}\n\n"
         "## 输出\n"
     ),
 )
 
 
 class ElementExtractorAgent(AgentBase[StudioScriptExtractionDraft]):
-    """项目级信息提取（最终输出）：输入剧本文本 + 分镜结果，产出全局实体表 + 逐镜关联。"""
+    """项目级信息提取（最终输出）：输入分镜结果，产出全局实体表 + 逐镜关联。"""
 
     @property
     def system_prompt(self) -> str:

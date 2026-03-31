@@ -29,21 +29,6 @@ class Settings(BaseSettings):
         "http://127.0.0.1:7788",
     ]
 
-    # LLM（影视技能抽取用，可选）
-    openai_api_key: str | None = None
-    openai_base_url: str | None = None
-    openai_model: str = "gpt-4o-mini"
-
-    # 图片生成（技能生成类：演员/角色/道具/场景/服装/镜头帧图片）
-    image_api_provider: str | None = None
-    image_api_key: str | None = None
-    image_api_base_url: str | None = None
-
-    # 视频生成（/film/generated_video 等）
-    video_api_provider: str | None = None
-    video_api_key: str | None = None
-    video_api_base_url: str | None = None
-
     # S3 / 对象存储（用于素材文件）
     s3_endpoint_url: str | None = None
     s3_region_name: str | None = None

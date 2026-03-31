@@ -23,20 +23,12 @@ export type ShotDivision = {
      */
     script_excerpt: string;
     /**
-     * 镜头名称（分镜名/镜头标题，勿与 scene_name 混用）
+     * 镜头名称（分镜名/镜头标题）
      */
     shot_name?: string;
-    /**
-     * 场景名称（可选，来自原文或推断）
-     */
-    scene_name?: (string | null);
     /**
      * 时间（日/夜/未知等，可选）
      */
     time_of_day?: ('DAY' | 'NIGHT' | 'DAWN' | 'DUSK' | 'UNKNOWN' | '日' | '夜' | '黎明' | '黄昏' | '不明' | '未知' | null);
-    /**
-     * 本镜出现的角色名/称呼（弱信息）
-     */
-    character_names_in_text?: Array<string>;
 };
 

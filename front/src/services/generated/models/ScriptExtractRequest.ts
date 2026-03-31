@@ -15,10 +15,6 @@ export type ScriptExtractRequest = {
      */
     chapter_id: string;
     /**
-     * 剧本文本（可为优化后版本）
-     */
-    script_text: string;
-    /**
      * 分镜结果（ScriptDivisionResult 序列化）
      */
     script_division: Record<string, any>;

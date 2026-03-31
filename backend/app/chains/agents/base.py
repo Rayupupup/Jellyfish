@@ -133,6 +133,8 @@ def _load_json_like(text: str) -> Any:
 class AgentBase(ABC, Generic[T]):
     """通用 Agent 基类：子类固化 prompt_template 与 output_model。"""
 
+    enable_thinking: bool = True
+
     def __init__(
         self,
         model: BaseChatModel,
@@ -141,6 +143,7 @@ class AgentBase(ABC, Generic[T]):
         agent_kwargs: dict[str, Any] | None = None,
     ) -> None:
         self._model = model
+        self._model.bind(extra_body={"enable_thinking": self.enable_thinking})
         self._structured_output_method = structured_output_method
         self._agent_kwargs = dict(agent_kwargs or {})
         self._structured_chain: Runnable | None = None

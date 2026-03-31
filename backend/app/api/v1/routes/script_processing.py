@@ -23,11 +23,9 @@ from app.chains.agents import (
     SceneInfoAnalysisAgent,
     ScriptOptimizerAgent,
     ScriptSimplifierAgent,
-    ShotElementExtractorAgent,
 )
 from app.chains.agents.script_processing_agents import (
     ScriptDivisionResult,
-    ShotElementExtractionResult,
     EntityMergeResult,
     VariantAnalysisResult,
     ScriptConsistencyCheckResult,
@@ -36,7 +34,7 @@ from app.chains.agents.script_processing_agents import (
     ScriptSimplificationResult,
     StudioScriptExtractionDraft,
 )
-from app.dependencies import get_llm
+from app.dependencies import get_llm, get_nothinking_llm
 from app.schemas.common import ApiResponse, success_response
 from app.schemas.skills.character_portrait import CharacterPortraitAnalysisResult
 from app.schemas.skills.costume_info_analysis import CostumeInfoAnalysisResult
@@ -63,13 +61,13 @@ class ScriptDividerRequest(BaseModel):
     summary="将剧本分割为多个镜头",
     description=(
         "输入完整剧本文本，输出分镜列表（index/start_line/end_line/script_excerpt/"
-        "shot_name/scene_name/time_of_day/character_names_in_text）。"
+        "shot_name/time_of_day）。"
         "注意：此阶段不强制稳定ID，角色以“称呼/名字”弱信息输出，稳定ID在合并阶段统一分配。"
     )
 )
 async def divide_script(
     request: ScriptDividerRequest,
-    llm: BaseChatModel = Depends(get_llm),
+    llm: BaseChatModel = Depends(get_nothinking_llm),
 ) -> ApiResponse[ScriptDivisionResult]:
     """
     将完整剧本文本自动分割为多个镜头。
@@ -78,7 +76,7 @@ async def divide_script(
     - script_text: 完整剧本文本
     
     返回：ScriptDivisionResult
-    - shots: 分镜列表，包含每个镜头的 index、起止行号、shot_name、script_excerpt、scene_name、time_of_day、character_names_in_text
+    - shots: 分镜列表，包含每个镜头的 index、起止行号、shot_name、script_excerpt、time_of_day
     - total_shots: 总镜头数
     - notes: 拆分说明（可选）
     """
@@ -95,72 +93,7 @@ async def divide_script(
 
 
 # ============================================================================
-# 2. ElementExtractorAgent - 逐镜信息提取
-# ============================================================================
-
-class ShotElementExtractionRequest(BaseModel):
-    """镜头元素提取请求。"""
-    index: int = Field(..., description="镜头序号（章节内唯一）", ge=1)
-    shot_text: str = Field(..., description="镜头的文本内容", min_length=1)
-    context_summary: str | None = Field(None, description="前文摘要（可选）")
-    shot_division: dict[str, Any] | None = Field(
-        None,
-        description="分镜元信息（可选；来自 ScriptDivider 的 ShotDivision 序列化）",
-    )
-
-
-@router.post(
-    "/extract-elements",
-    response_model=ApiResponse[ShotElementExtractionResult],
-    summary="从单个镜头提取信息",
-    deprecated=True,
-    description=(
-        "[已弃用] 旧版逐镜提取接口。新流程请使用 /extract（项目级提取，直接输出最终结果）。"
-    )
-)
-async def extract_shot_elements(
-    request: ShotElementExtractionRequest,
-    llm: BaseChatModel = Depends(get_llm),
-) -> ApiResponse[ShotElementExtractionResult]:
-    """
-    从单个镜头的文本中提取关键信息。
-    
-    请求体：
-    - index: 镜头序号
-    - shot_text: 镜头文本内容
-    - context_summary: 前文摘要（可选）
-    - shot_division: 分镜元信息（可选，来自 ScriptDivider 的 ShotDivision）
-    
-    返回：ShotElementExtractionResult
-    - index: 镜头序号
-    - shot_division: 分镜元信息（可选回填）
-    - elements: 提取的元素（升级版）
-      - 基础索引：character_keys/scene_keys/costume_keys/prop_keys
-      - 细粒度：characters_detailed/props_detailed/scene_detailed
-      - 保留字段：dialogue_lines/actions
-      - 辅助字段：shot_type_hints/confidence_breakdown
-    - confidence: 提取置信度 (0-1)
-    - notes: 提取说明（可选）
-    """
-    try:
-        agent = ShotElementExtractorAgent(llm)
-        result = agent.extract(
-            index=request.index,
-            shot_text=request.shot_text,
-            context_summary=request.context_summary or "",
-            shot_division_json=json.dumps(request.shot_division or {}, ensure_ascii=False),
-        )
-        return success_response(data=result)
-    except Exception as e:
-        logger.error(f"Element extraction failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to extract elements: {str(e)}"
-        )
-
-
-# ============================================================================
-# 3. EntityMergerAgent - 实体合并
+# 2. EntityMergerAgent - 实体合并
 # ============================================================================
 
 class EntityMergerRequest(BaseModel):
@@ -565,7 +498,6 @@ class ScriptExtractRequest(BaseModel):
     """项目级信息提取请求（最终输出）。"""
     project_id: str = Field(..., description="项目 ID", min_length=1)
     chapter_id: str = Field(..., description="章节 ID", min_length=1)
-    script_text: str = Field(..., description="剧本文本（可为优化后版本）", min_length=1)
     script_division: dict[str, Any] = Field(..., description="分镜结果（ScriptDivisionResult 序列化）")
     consistency: dict[str, Any] | None = Field(None, description="一致性检查结果（可选；ScriptConsistencyCheckResult 序列化）")
 
@@ -574,18 +506,17 @@ class ScriptExtractRequest(BaseModel):
     "/extract",
     response_model=ApiResponse[StudioScriptExtractionDraft],
     summary="项目级信息提取（最终输出）",
-    description="输入剧本文本+分镜结果（可选带一致性检查结果），输出可导入 Studio 的草稿结构（name-based，ID 由导入接口生成）。"
+    description="输入分镜结果（可选带一致性检查结果），输出可导入 Studio 的草稿结构（name-based，ID 由导入接口生成）。"
 )
 async def extract_script(
     request: ScriptExtractRequest,
-    llm: BaseChatModel = Depends(get_llm),
+    llm: BaseChatModel = Depends(get_nothinking_llm),
 ) -> ApiResponse[StudioScriptExtractionDraft]:
     try:
         agent = ElementExtractorAgent(llm)
         result = agent.extract(
             project_id=request.project_id,
             chapter_id=request.chapter_id,
-            script_text=request.script_text,
             script_division_json=json.dumps(request.script_division, ensure_ascii=False),
             consistency_json=json.dumps(request.consistency or {}, ensure_ascii=False),
         )
@@ -661,7 +592,6 @@ async def full_process(
         final_result = extractor.extract(
             project_id=request.project_id,
             chapter_id=request.chapter_id,
-            script_text=script_text,
             script_division_json=json.dumps(division.model_dump(), ensure_ascii=False),
             consistency_json=json.dumps(consistency.model_dump(), ensure_ascii=False),
         )

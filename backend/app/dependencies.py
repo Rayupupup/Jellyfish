@@ -2,13 +2,13 @@
 
 from collections.abc import AsyncGenerator
 
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.runnables import Runnable
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.core.db import async_session_maker
+from app.models.llm import ModelCategoryKey
+from app.services.llm.resolver import get_default_model_by_category, get_provider_by_model_or_id
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -24,12 +24,16 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
-def get_llm() -> BaseChatModel:
-    """提供 LLM（ChatOpenAI），用于影视技能抽取。未配置 OPENAI_API_KEY 时抛出 503。"""
-    if not settings.openai_api_key:
+async def get_llm(db: AsyncSession = Depends(get_db)) -> BaseChatModel:
+    """提供默认文本 LLM（ChatOpenAI），从数据库读取默认文本模型；未配置则抛出 503。"""
+    model = await get_default_model_by_category(db, ModelCategoryKey.text)
+    provider = await get_provider_by_model_or_id(db, model)
+
+    api_key = (provider.api_key or "").strip()
+    if not api_key:
         raise HTTPException(
             status_code=503,
-            detail="OPENAI_API_KEY not configured; set it in .env to use film extraction endpoints",
+            detail=f"Provider api_key is empty for provider_id={provider.id}",
         )
     try:
         from langchain_openai import ChatOpenAI
@@ -38,13 +42,46 @@ def get_llm() -> BaseChatModel:
             status_code=503,
             detail="Install langchain-openai (e.g. uv sync --group dev) to use film extraction endpoints",
         ) from e
-    kwargs: dict = {
-        "model": settings.openai_model,
-        "temperature": 0,
-        "api_key": settings.openai_api_key,
-        }
-    if settings.openai_base_url:
-        kwargs["base_url"] = settings.openai_base_url
+
+    kwargs: dict = dict(model.params or {})
+    kwargs["model"] = model.name
+    kwargs["api_key"] = api_key
+    kwargs.setdefault("temperature", 0)
+    base_url = (provider.base_url or "").strip()
+    if base_url:
+        kwargs.setdefault("base_url", base_url)
+    return ChatOpenAI(**kwargs)
+
+async def get_nothinking_llm(db: AsyncSession = Depends(get_db)) -> BaseChatModel:
+    """提供默认文本 LLM（ChatOpenAI，禁用 thinking），从数据库读取默认文本模型；未配置则抛出 503。"""
+    model = await get_default_model_by_category(db, ModelCategoryKey.text)
+    provider = await get_provider_by_model_or_id(db, model)
+
+    api_key = (provider.api_key or "").strip()
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Provider api_key is empty for provider_id={provider.id}",
+        )
+    try:
+        from langchain_openai import ChatOpenAI
+    except ImportError as e:
+        raise HTTPException(
+            status_code=503,
+            detail="Install langchain-openai (e.g. uv sync --group dev) to use film extraction endpoints",
+        ) from e
+
+    kwargs: dict = dict(model.params or {})
+    kwargs["model"] = model.name
+    kwargs["api_key"] = api_key
+    kwargs.setdefault("temperature", 0)
+    base_url = (provider.base_url or "").strip()
+    if base_url:
+        kwargs.setdefault("base_url", base_url)
+
+    extra_body = dict(kwargs.get("extra_body") or {})
+    extra_body["enable_thinking"] = False
+    kwargs["extra_body"] = extra_body
     return ChatOpenAI(**kwargs)
 
 
@@ -85,13 +122,3 @@ class _ImageHttpRunnable:
             r.raise_for_status()
             data = r.json()
             return data if isinstance(data, dict) else {"images": data}
-
-
-def get_image_runnable() -> Runnable:
-    """提供图片生成 runnable（用于生成类任务）。未配置 IMAGE_API_* 时抛出 503。"""
-    if not settings.image_api_base_url or not settings.image_api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="IMAGE_API_BASE_URL/IMAGE_API_KEY not configured; set them in .env to use image generation tasks",
-        )
-    return _ImageHttpRunnable(base_url=settings.image_api_base_url, api_key=settings.image_api_key)  # type: ignore[return-value]

@@ -60,7 +60,6 @@ export default function ExtractProjectStep() {
         requestBody: {
           project_id: projectId,
           chapter_id: chapterId,
-          script_text: workingScriptText,
           script_division: scriptDivision as any,
           consistency: consistencyResult ?? undefined,
         } as any,
@@ -164,7 +163,7 @@ export default function ExtractProjectStep() {
                     <div className="font-medium truncate">
                       #{s.index} · {s.title || '未命名镜头'}
                     </div>
-                    <div className="text-xs text-gray-500 truncate">{s.scene_name || ''}</div>
+                    <div className="text-xs text-gray-500 truncate">{s.shot_name || ''}</div>
                   </div>
                 </List.Item>
               )}
@@ -196,8 +195,8 @@ export default function ExtractProjectStep() {
                     <Input value={selectedShot.title ?? ''} onChange={(e) => setSelectedShotPatch({ title: e.target.value })} />
                   </div>
                   <div>
-                    <div className="text-xs text-gray-600 mb-1">场景名</div>
-                    <Input value={selectedShot.scene_name ?? ''} onChange={(e) => setSelectedShotPatch({ scene_name: e.target.value })} />
+                  <div className="text-xs text-gray-600 mb-1">镜头名称（shot_name）</div>
+                  <Input value={selectedShot.shot_name ?? ''} onChange={(e) => setSelectedShotPatch({ shot_name: e.target.value })} />
                   </div>
                   <div className="md:col-span-2">
                     <div className="text-xs text-gray-600 mb-1">动作（每行一条）</div>

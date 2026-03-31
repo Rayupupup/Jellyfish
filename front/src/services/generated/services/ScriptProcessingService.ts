@@ -11,7 +11,6 @@ import type { ApiResponse_ScriptConsistencyCheckResult_ } from '../models/ApiRes
 import type { ApiResponse_ScriptDivisionResult_ } from '../models/ApiResponse_ScriptDivisionResult_';
 import type { ApiResponse_ScriptOptimizationResult_ } from '../models/ApiResponse_ScriptOptimizationResult_';
 import type { ApiResponse_ScriptSimplificationResult_ } from '../models/ApiResponse_ScriptSimplificationResult_';
-import type { ApiResponse_ShotElementExtractionResult_ } from '../models/ApiResponse_ShotElementExtractionResult_';
 import type { ApiResponse_StudioScriptExtractionDraft_ } from '../models/ApiResponse_StudioScriptExtractionDraft_';
 import type { ApiResponse_VariantAnalysisResult_ } from '../models/ApiResponse_VariantAnalysisResult_';
 import type { CharacterPortraitAnalysisRequest } from '../models/CharacterPortraitAnalysisRequest';
@@ -25,7 +24,6 @@ import type { ScriptDividerRequest } from '../models/ScriptDividerRequest';
 import type { ScriptExtractRequest } from '../models/ScriptExtractRequest';
 import type { ScriptOptimizeRequest } from '../models/ScriptOptimizeRequest';
 import type { ScriptSimplifyRequest } from '../models/ScriptSimplifyRequest';
-import type { ShotElementExtractionRequest } from '../models/ShotElementExtractionRequest';
 import type { VariantAnalysisRequest } from '../models/VariantAnalysisRequest';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
@@ -33,7 +31,7 @@ import { request as __request } from '../core/request';
 export class ScriptProcessingService {
     /**
      * 将剧本分割为多个镜头
-     * 输入完整剧本文本，输出分镜列表（index/start_line/end_line/script_excerpt/shot_name/scene_name/time_of_day/character_names_in_text）。注意：此阶段不强制稳定ID，角色以“称呼/名字”弱信息输出，稳定ID在合并阶段统一分配。
+     * 输入完整剧本文本，输出分镜列表（index/start_line/end_line/script_excerpt/shot_name/time_of_day）。注意：此阶段不强制稳定ID，角色以“称呼/名字”弱信息输出，稳定ID在合并阶段统一分配。
      * @returns ApiResponse_ScriptDivisionResult_ Successful Response
      * @throws ApiError
      */
@@ -45,28 +43,6 @@ export class ScriptProcessingService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/v1/script-processing/divide',
-            body: requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: `Validation Error`,
-            },
-        });
-    }
-    /**
-     * @deprecated
-     * 从单个镜头提取信息
-     * [已弃用] 旧版逐镜提取接口。新流程请使用 /extract（项目级提取，直接输出最终结果）。
-     * @returns ApiResponse_ShotElementExtractionResult_ Successful Response
-     * @throws ApiError
-     */
-    public static extractShotElementsApiV1ScriptProcessingExtractElementsPost({
-        requestBody,
-    }: {
-        requestBody: ShotElementExtractionRequest,
-    }): CancelablePromise<ApiResponse_ShotElementExtractionResult_> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/v1/script-processing/extract-elements',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -265,7 +241,7 @@ export class ScriptProcessingService {
     }
     /**
      * 项目级信息提取（最终输出）
-     * 输入剧本文本+分镜结果（可选带一致性检查结果），输出可导入 Studio 的草稿结构（name-based，ID 由导入接口生成）。
+     * 输入分镜结果（可选带一致性检查结果），输出可导入 Studio 的草稿结构（name-based，ID 由导入接口生成）。
      * @returns ApiResponse_StudioScriptExtractionDraft_ Successful Response
      * @throws ApiError
      */

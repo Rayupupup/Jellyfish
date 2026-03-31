@@ -7,7 +7,6 @@ from app.chains.agents.shot_frame_prompt_agents import (
     ShotKeyFramePromptAgent,
 )
 from app.chains.agents.script_divider_agent import ScriptDividerAgent
-from app.chains.agents.shot_element_extractor_agent import ShotElementExtractorAgent
 from app.chains.agents.element_extractor_agent import ElementExtractorAgent
 from app.chains.agents.entity_merger_agent import EntityMergerAgent
 from app.chains.agents.variant_analyzer_agent import VariantAnalyzerAgent
@@ -28,7 +27,6 @@ __all__ = [
     "ShotKeyFramePromptAgent",
     "ScriptDividerAgent",
     "ElementExtractorAgent",
-    "ShotElementExtractorAgent",
     "EntityMergerAgent",
     "VariantAnalyzerAgent",
     "ConsistencyCheckerAgent",

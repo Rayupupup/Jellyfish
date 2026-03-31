@@ -13,7 +13,6 @@ from app.chains.agents.output_compiler_agent import OutputCompilerAgent
 from app.chains.agents.script_divider_agent import ScriptDividerAgent
 from app.chains.agents.script_optimizer_agent import ScriptOptimizerAgent
 from app.chains.agents.script_simplifier_agent import ScriptSimplifierAgent
-from app.chains.agents.shot_element_extractor_agent import ShotElementExtractorAgent
 from app.chains.agents.variant_analyzer_agent import VariantAnalyzerAgent
 
 from app.schemas.skills.script_processing import (
@@ -23,7 +22,6 @@ from app.schemas.skills.script_processing import (
     ScriptDivisionResult,
     ScriptOptimizationResult,
     ScriptSimplificationResult,
-    ShotElementExtractionResult,
     ShotDivision,
     StudioScriptExtractionDraft,
     VariantAnalysisResult,
@@ -31,7 +29,6 @@ from app.schemas.skills.script_processing import (
 
 __all__ = [
     "ScriptDividerAgent",
-    "ShotElementExtractorAgent",
     "ElementExtractorAgent",
     "EntityMergerAgent",
     "VariantAnalyzerAgent",
@@ -45,7 +42,6 @@ __all__ = [
     "ScriptDivisionResult",
     "ScriptSimplificationResult",
     "ScriptOptimizationResult",
-    "ShotElementExtractionResult",
     "StudioScriptExtractionDraft",
     "EntityMergeResult",
     "VariantAnalysisResult",

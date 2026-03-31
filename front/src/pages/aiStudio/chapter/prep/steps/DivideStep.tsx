@@ -10,7 +10,7 @@ type ShotRow = {
   start_line: number
   end_line: number
   script_excerpt: string
-  scene_name?: string | null
+  shot_name?: string | null
   time_of_day?: string | null
   character_names_in_text?: string[]
 }
@@ -78,14 +78,14 @@ export default function DivideStep() {
       ),
     },
     {
-      title: '场景',
-      dataIndex: 'scene_name',
-      key: 'scene_name',
+      title: '分镜名',
+      dataIndex: 'shot_name',
+      key: 'shot_name',
       width: 180,
       render: (v, r) => (
         <Input
           value={v ?? ''}
-          onChange={(e) => updateShot(r.index, { scene_name: e.target.value })}
+          onChange={(e) => updateShot(r.index, { shot_name: e.target.value })}
           size="small"
         />
       ),
@@ -139,7 +139,7 @@ export default function DivideStep() {
       start_line: 1,
       end_line: 1,
       script_excerpt: '',
-      scene_name: '',
+      shot_name: '',
       time_of_day: null,
       character_names_in_text: [],
     }
