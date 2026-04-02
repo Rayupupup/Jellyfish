@@ -33,20 +33,15 @@ import {
   DeleteOutlined,
   DoubleLeftOutlined,
   DoubleRightOutlined,
-  DownOutlined,
   EditOutlined,
-  ExportOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
-  FileExcelOutlined,
-  FilePdfOutlined,
   FileTextOutlined,
   LinkOutlined,
   MergeCellsOutlined,
   PauseCircleOutlined,
   PictureOutlined,
   PlayCircleOutlined,
-  SaveOutlined,
   ScissorOutlined,
   SettingOutlined,
   SoundOutlined,
@@ -296,8 +291,6 @@ const ChapterStudio: React.FC = () => {
   const [videoTime, setVideoTime] = useState(0)
 
   const [filter, setFilter] = useState<ShotFilter>('all')
-  const [exportModalOpen, setExportModalOpen] = useState(false)
-  const [exportFormat, setExportFormat] = useState<'excel' | 'json' | 'pdf'>('excel')
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null)
   const [editingTitleValue, setEditingTitleValue] = useState('')
   const [draggingShotId, setDraggingShotId] = useState<string | null>(null)
@@ -568,6 +561,22 @@ const ChapterStudio: React.FC = () => {
     })
     setDialogLines(res.data?.items ?? [])
   }
+
+  const refreshShotFrameImages = useCallback(async () => {
+    if (!selectedShotId) return
+    try {
+      const res = await StudioShotFrameImagesService.listShotFrameImagesApiV1StudioShotFrameImagesGet({
+        shotDetailId: selectedShotId,
+        order: null,
+        isDesc: false,
+        page: 1,
+        pageSize: 100,
+      })
+      setFrameImages((res.data?.items ?? []) as ShotFrameImageRead[])
+    } catch {
+      message.error('刷新关键帧类型失败')
+    }
+  }, [selectedShotId])
 
   const addDialogLine = async (text: string) => {
     if (!selectedShotId) return
@@ -1513,47 +1522,7 @@ const ChapterStudio: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 min-w-0 flex items-center justify-center">
-          <Space size="middle" wrap>
-            <Button
-              size="small"
-              type="primary"
-              icon={<ThunderboltOutlined />}
-              onClick={() => message.success('智能精简完成（Mock）')}
-            >
-              智能精简
-            </Button>
-            <Button
-              size="small"
-              icon={<ThunderboltOutlined />}
-              onClick={() => message.success('已提取角色/场景/道具/分镜建议（Mock）')}
-            >
-              智能提取全部
-            </Button>
-            <Dropdown menu={{ items: batchMenuItems }} disabled={selectedShotIds.length === 0}>
-              <Button size="small">
-                批量操作 <DownOutlined />
-              </Button>
-            </Dropdown>
-            <Button size="small" type="primary" icon={<SaveOutlined />} onClick={() => message.success('已保存草稿（Mock）')}>
-              保存草稿
-            </Button>
-            <Button
-              size="small"
-              icon={<PlayCircleOutlined />}
-              onClick={() => message.info('预览整章（Mock：连续播放非隐藏分镜）')}
-            >
-              预览整章
-            </Button>
-            <Button
-              size="small"
-              icon={<ExportOutlined />}
-              onClick={() => setExportModalOpen(true)}
-            >
-              导出分镜表
-            </Button>
-          </Space>
-        </div>
+        <div className="flex-1 min-w-0" />
 
         <div className="flex items-center gap-2 shrink-0">
           <Dropdown menu={{ items: toolbarSettingsItems }} trigger={['click']}>
@@ -2096,6 +2065,7 @@ const ChapterStudio: React.FC = () => {
                 onPatchShotDetail={patchShotDetailLocal}
                 onPatchShotDetailImmediate={patchShotDetailImmediate}
                 onSelectPreviewVideo={setPreviewVideoFileId}
+                onRefreshShotFrameImages={refreshShotFrameImages}
                 onClose={() => setPrefs((p) => ({ ...p, inspectorOpen: false }))}
               />
             </Sider>
@@ -2159,6 +2129,7 @@ const ChapterStudio: React.FC = () => {
                     onPatchShotDetail={patchShotDetailLocal}
                     onPatchShotDetailImmediate={patchShotDetailImmediate}
                     onSelectPreviewVideo={setPreviewVideoFileId}
+                    onRefreshShotFrameImages={refreshShotFrameImages}
                     onClose={() => setPrefs((p) => ({ ...p, inspectorOpen: false }))}
                   />
                 </div>
@@ -2178,33 +2149,6 @@ const ChapterStudio: React.FC = () => {
           </>
         )}
       </Layout>
-
-      {/* 导出弹窗 */}
-      <Modal
-        title="导出分镜表"
-        open={exportModalOpen}
-        onCancel={() => setExportModalOpen(false)}
-        okText="导出"
-        cancelText="取消"
-        onOk={() => {
-          setExportModalOpen(false)
-          message.success(`已导出 ${exportFormat.toUpperCase()}（Mock）`)
-        }}
-      >
-        <div className="space-y-3">
-          <div className="text-sm text-gray-600">选择导出格式</div>
-          <Radio.Group
-            value={exportFormat}
-            onChange={(e) => setExportFormat(e.target.value)}
-            options={[
-              { value: 'excel', label: <span className="inline-flex items-center gap-2"><FileExcelOutlined /> Excel</span> },
-              { value: 'json', label: <span className="inline-flex items-center gap-2"><FileTextOutlined /> JSON</span> },
-              { value: 'pdf', label: <span className="inline-flex items-center gap-2"><FilePdfOutlined /> PDF</span> },
-            ]}
-          />
-          <div className="text-xs text-gray-500">将导出当前章节的分镜脚本与关键字段（Mock）。</div>
-        </div>
-      </Modal>
     </div>
   )
 }
@@ -2237,6 +2181,8 @@ function Inspector(props: {
   onPatchShotDetail: (patch: Partial<ShotDetailRead>) => void
   onPatchShotDetailImmediate: (patch: Partial<ShotDetailRead>) => Promise<void>
   onSelectPreviewVideo: (fileId: string) => void
+  /** 下拉展开时拉取最新分镜帧图，用于「参考」关键帧类型选项动态更新 */
+  onRefreshShotFrameImages?: () => Promise<void>
 }) {
   const {
     projectId,
@@ -2264,9 +2210,11 @@ function Inspector(props: {
     onPatchShotDetail,
     onPatchShotDetailImmediate,
     onSelectPreviewVideo,
+    onRefreshShotFrameImages,
   } = props
   const [imageVersion, setImageVersion] = useState('v1')
-  const [refImageType, setRefImageType] = useState<string[]>([])
+  const [refImageType, setRefImageType] = useState<string | undefined>(undefined)
+  const [refFrameTypeSelectLoading, setRefFrameTypeSelectLoading] = useState(false)
   const [useBoneDepth, setUseBoneDepth] = useState(false)
   const [audioMode, setAudioMode] = useState<'none' | 'prompt' | 'upload'>('none')
   const [hideShot, setHideShot] = useState(false)
@@ -2776,6 +2724,20 @@ function Inspector(props: {
   }
 
   const frameLabel: Record<PromptFrameType, string> = { first: '首帧', key: '关键帧', last: '尾帧' }
+
+  const handleRefFrameTypeDropdownVisibleChange = useCallback(
+    async (open: boolean) => {
+      if (!open || !onRefreshShotFrameImages) return
+      setRefFrameTypeSelectLoading(true)
+      try {
+        await onRefreshShotFrameImages()
+      } finally {
+        setRefFrameTypeSelectLoading(false)
+      }
+    },
+    [onRefreshShotFrameImages],
+  )
+
   const refFrameTypeOptions = useMemo(() => {
     const kinds = new Set((frameImages ?? []).map((x) => x.frame_type))
     const opts: Array<{ value: string; label: string }> = []
@@ -2788,34 +2750,24 @@ function Inspector(props: {
 
   useEffect(() => {
     const allowed = new Set(refFrameTypeOptions.map((x) => x.value))
-    setRefImageType((prev) => prev.filter((v) => allowed.has(v)))
+    setRefImageType((prev) => (prev && allowed.has(prev) ? prev : undefined))
   }, [refFrameTypeOptions])
 
   const buildVideoRefSelection = () => {
-    const selected = new Set(refImageType)
     const first = frameImages.find((x) => x.frame_type === 'first')?.file_id ?? null
     const last = frameImages.find((x) => x.frame_type === 'last')?.file_id ?? null
     const key = frameImages.find((x) => x.frame_type === 'key')?.file_id ?? null
 
-    const useFirst = selected.has('first') || selected.has('first_last')
-    const useLast = selected.has('last') || selected.has('first_last')
-    const useKey = selected.has('key')
-
-    if (useFirst && useLast && useKey) {
-      return {
-        referenceMode: 'first_last_key' as const,
-        images: [first, last, key].filter((x): x is string => Boolean(x)),
-      }
-    }
-    if (useFirst && useLast) {
+    const s = refImageType
+    if (s === 'first_last') {
       return {
         referenceMode: 'first_last' as const,
         images: [first, last].filter((x): x is string => Boolean(x)),
       }
     }
-    if (useKey) return { referenceMode: 'key' as const, images: key ? [key] : [] }
-    if (useFirst) return { referenceMode: 'first' as const, images: first ? [first] : [] }
-    if (useLast) return { referenceMode: 'last' as const, images: last ? [last] : [] }
+    if (s === 'key') return { referenceMode: 'key' as const, images: key ? [key] : [] }
+    if (s === 'first') return { referenceMode: 'first' as const, images: first ? [first] : [] }
+    if (s === 'last') return { referenceMode: 'last' as const, images: last ? [last] : [] }
     return { referenceMode: 'text_only' as const, images: [] }
   }
 
@@ -3360,20 +3312,6 @@ function Inspector(props: {
                     </div>
                     <div className="space-y-4">
                       <div>
-                        <div className="text-gray-500 text-xs mb-1">场景</div>
-                        <Select
-                          showSearch
-                          placeholder="选择当前镜头场景"
-                          className="w-full"
-                          value={sceneLinks.find((x) => (x.shot_id ?? null) === selectedShot?.id)?.scene_id ?? shotDetail?.scene_id ?? undefined}
-                          onChange={(v) => void onUpdatePromptScene(typeof v === 'string' ? v : undefined)}
-                          allowClear
-                          disabled={promptAssetsUpdating}
-                          optionLabelProp="label"
-                          options={sceneIds.map((id) => ({ value: id, label: sceneNameMap[id] ?? id }))}
-                        />
-                      </div>
-                      <div>
                         <div className="text-gray-500 text-xs mb-1">角色</div>
                         <Select
                           mode="multiple"
@@ -3498,11 +3436,9 @@ function Inspector(props: {
                         <div className="cs-group-title flex items-center justify-between gap-2">
                           <span>{frameLabel[ft]}图片</span>
                           <Space size={8}>
-                            {st.thumbs.length > 0 ? (
-                              <Button size="small" type="link" onClick={() => updateCardState(ft, { modalOpen: true })}>
-                                更多
-                              </Button>
-                            ) : null}
+                            <Button size="small" type="link" onClick={() => updateCardState(ft, { modalOpen: true })}>
+                              更多
+                            </Button>
                             <Button size="small" type="primary" loading={st.loading} onClick={() => void generateKeyframeCard(ft)}>
                               生成
                             </Button>
@@ -3912,12 +3848,14 @@ function Inspector(props: {
                       <LinkOutlined /> 参考
                     </div>
                     <Select
-                      mode="multiple"
+                      allowClear
                       placeholder="按已有关键帧类型选择"
                       className="w-full"
                       value={refImageType}
-                      onChange={setRefImageType}
+                      onChange={(v) => setRefImageType(v === undefined || v === null ? undefined : String(v))}
                       options={refFrameTypeOptions}
+                      loading={refFrameTypeSelectLoading}
+                      onDropdownVisibleChange={handleRefFrameTypeDropdownVisibleChange}
                     />
                   </div>
 
