@@ -1,0 +1,226 @@
+{
+  "name": "Jellyfish: 故事生成短剧",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "开始",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jellyfish.mbbrevamp.duckdns.org/api/v1/studio/projects",
+        "authentication": "none",
+        "options": {},
+        "bodyParametersJson": "={{ JSON.stringify({\"title\": $json.project_title || \"AI短剧\", \"description\": \"自动生成\"}) }}"
+      },
+      "id": "create_project",
+      "name": "1. 创建项目",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ \"https://jellyfish.mbbrevamp.duckdns.org/api/v1/studio/chapters?project_id=\" + $json.data.id }}",
+        "authentication": "none",
+        "options": {},
+        "bodyParametersJson": "={{ JSON.stringify({\"title\": \"第一集\", \"index\": 1}) }}"
+      },
+      "id": "create_chapter",
+      "name": "2. 创建章节",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jellyfish.mbbrevamp.duckdns.org/api/v1/script-processing/full-process",
+        "authentication": "none",
+        "options": {},
+        "bodyParametersJson": "={{ JSON.stringify({\"raw_text\": $('开始').item.json.story_text, \"project_id\": $('1. 创建项目').item.json.data.id, \"chapter_id\": $json.data.id}) }}"
+      },
+      "id": "full_process",
+      "name": "3. Full Process",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jellyfish.mbbrevamp.duckdns.org/api/v1/studio/import-from-extraction",
+        "authentication": "none",
+        "options": {},
+        "bodyParametersJson": "={{ JSON.stringify({\"project_id\": $('1. 创建项目').item.json.data.id, \"chapter_id\": $('2. 创建章节').item.json.data.id, \"extraction_result\": $json.data}) }}"
+      },
+      "id": "import_studio",
+      "name": "4. 导入Studio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ \"https://jellyfish.mbbrevamp.duckdns.org/api/v1/studio/shots?chapter_id=\" + $('2. 创建章节').item.json.data.id }}",
+        "authentication": "none",
+        "options": {}
+      },
+      "id": "get_shots",
+      "name": "5. 获取镜头列表",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split_shots",
+      "name": "6. 拆分镜头",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ \"https://jellyfish.mbbrevamp.duckdns.org/api/v1/studio/image-tasks/shot/\" + $json.id + \"/frame-image-tasks\" }}",
+        "authentication": "none",
+        "options": {},
+        "bodyParametersJson": "={{ JSON.stringify({\"frame_type\": \"first\"}) }}"
+      },
+      "id": "gen_first_frame",
+      "name": "7a. 生成first_frame",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1650, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ \"https://jellyfish.mbbrevamp.duckdns.org/api/v1/studio/image-tasks/shot/\" + $('6. 拆分镜头').item.json.id + \"/frame-image-tasks\" }}",
+        "authentication": "none",
+        "options": {},
+        "bodyParametersJson": "={{ JSON.stringify({\"frame_type\": \"last\"}) }}"
+      },
+      "id": "gen_last_frame",
+      "name": "7b. 生成last_frame",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1850, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jellyfish.mbbrevamp.duckdns.org/api/v1/film/tasks/video",
+        "authentication": "none",
+        "options": {},
+        "bodyParametersJson": "={{ JSON.stringify({\"shot_id\": $('6. 拆分镜头').item.json.id, \"reference_mode\": \"first_last\"}) }}"
+      },
+      "id": "gen_video",
+      "name": "8. 生成视频",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2050, 200]
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "id": "wait",
+      "name": "等待视频生成",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2250, 200],
+      "webhookId": "wait-video"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ \"https://jellyfish.mbbrevamp.duckdns.org/api/v1/studio/chapters/\" + $('2. 创建章节').item.json.data.id + \"/export\" }}",
+        "authentication": "none",
+        "options": {}
+      },
+      "id": "export_video",
+      "name": "9. 导出成片",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1650, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $('6. 拆分镜头').context.noItemsLeft }}",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "check_done",
+      "name": "检查是否完成",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2450, 300]
+    }
+  ],
+  "connections": {
+    "开始": {
+      "main": [[{"node": "1. 创建项目", "type": "main", "index": 0}]]
+    },
+    "1. 创建项目": {
+      "main": [[{"node": "2. 创建章节", "type": "main", "index": 0}]]
+    },
+    "2. 创建章节": {
+      "main": [[{"node": "3. Full Process", "type": "main", "index": 0}]]
+    },
+    "3. Full Process": {
+      "main": [[{"node": "4. 导入Studio", "type": "main", "index": 0}]]
+    },
+    "4. 导入Studio": {
+      "main": [[{"node": "5. 获取镜头列表", "type": "main", "index": 0}]]
+    },
+    "5. 获取镜头列表": {
+      "main": [[{"node": "6. 拆分镜头", "type": "main", "index": 0}]]
+    },
+    "6. 拆分镜头": {
+      "main": [[{"node": "7a. 生成first_frame", "type": "main", "index": 0}]]
+    },
+    "7a. 生成first_frame": {
+      "main": [[{"node": "7b. 生成last_frame", "type": "main", "index": 0}]]
+    },
+    "7b. 生成last_frame": {
+      "main": [[{"node": "8. 生成视频", "type": "main", "index": 0}]]
+    },
+    "8. 生成视频": {
+      "main": [[{"node": "等待视频生成", "type": "main", "index": 0}]]
+    },
+    "等待视频生成": {
+      "main": [[{"node": "检查是否完成", "type": "main", "index": 0}]]
+    },
+    "检查是否完成": {
+      "main": [
+        [{"node": "9. 导出成片", "type": "main", "index": 0}],
+        [{"node": "6. 拆分镜头", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-03-29T05:00:00.000Z",
+  "versionId": "1"
+}
