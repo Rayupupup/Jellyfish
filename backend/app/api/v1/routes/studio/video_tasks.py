@@ -61,6 +61,11 @@ async def _poll_and_save(shot_id: str, task_id: str) -> None:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.get(url, headers=headers)
                 data = resp.json()
+            
+            # 类型检查：确保 data 是字典
+            if not isinstance(data, dict):
+                logger.error(f"Invalid response type for task {task_id}: {type(data)}, data: {data}")
+                continue
 
             status = data.get("status", "")
             logger.info(f"Video task {task_id} status: {status}")
