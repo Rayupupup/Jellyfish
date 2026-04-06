@@ -187,9 +187,17 @@ async def build_download_response(
     db: AsyncSession,
     *,
     file_id: str,
-) -> StreamingResponse:
+):
     """根据 file_id 构建下载响应。"""
+    from fastapi.responses import RedirectResponse
+    
     file_item = await get_or_404(db, FileItem, file_id, detail=entity_not_found("File"))
+    
+    # 如果 storage_key 是完整 URL，直接重定向
+    if file_item.storage_key.startswith(("http://", "https://")):
+        return RedirectResponse(url=file_item.storage_key)
+    
+    # 否则从 S3 下载
     content = await storage.download_file(key=file_item.storage_key)
 
     filename = Path(file_item.storage_key).name or "download"
