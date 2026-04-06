@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react'
-import { Layout, Menu, theme, Dropdown, Space, Avatar, Select, Breadcrumb, Drawer, Button } from 'antd'
+import { Layout, Menu, theme, Dropdown, Space, Avatar, Select, Breadcrumb, Drawer } from 'antd'
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -225,7 +225,7 @@ const MainLayout: React.FC = () => {
                 className="cursor-pointer text-xl shrink-0"
                 onClick={() => setMobileDrawerOpen(true)}
               >
-                <MenuOutlined /
+                <MenuOutlined />
               </span>
             ) : (
               <span
@@ -256,9 +256,10 @@ const MainLayout: React.FC = () => {
                 }}
                 options={[
                   { label: t('lang.zh'), value: 'zh-CN' },
-                { label: t('lang.en'), value: 'en-US' },
-              ]}
-            />
+                  { label: t('lang.en'), value: 'en-US' },
+                ]}
+              />
+            )}
 
             <Dropdown
               menu={{

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Card, Button, Tabs, Tag, Spin, Drawer, List, Segmented } from 'antd'
+import { Card, Button, Tabs, Tag, Spin, Drawer, List } from 'antd'
 import {
   PlayCircleOutlined,
   PauseCircleOutlined,
@@ -22,10 +22,6 @@ interface MobileShotPlayerProps {
   loading?: boolean
 }
 
-/**
- * 移动端分镜播放器
- * 适配手机屏幕，使用底部导航和抽屉式面板
- */
 export const MobileShotPlayer: React.FC<MobileShotPlayerProps> = ({
   shots,
   selectedShotId,
@@ -46,23 +42,17 @@ export const MobileShotPlayer: React.FC<MobileShotPlayerProps> = ({
   const selectedShot = shots.find((s) => s.id === selectedShotId)
   const visibleShots = shots.filter((s) => !s.hidden)
 
-  // 播放状态同步
   useEffect(() => {
     const v = videoRef.current
     if (!v) return
     if (isPlaying) {
-      void v.play().catch(() => {
-        // 自动播放被阻止，忽略错误
-      })
+      void v.play().catch(() => {})
     } else {
       v.pause()
     }
   }, [isPlaying, currentVideoUrl])
 
-  if (!isMobile) {
-    // 非移动端不渲染此组件
-    return null
-  }
+  if (!isMobile) return null
 
   return (
     <div className="mobile-shot-player flex flex-col h-full bg-gray-50">
@@ -78,11 +68,7 @@ export const MobileShotPlayer: React.FC<MobileShotPlayerProps> = ({
           返回
         </Button>
         <div className="text-sm font-medium truncate max-w-[40vw]">{chapterTitle || '分镜播放'}</div>
-        <Button
-          type="text"
-          icon={<MenuOutlined />}
-          onClick={() => setListDrawerOpen(true)}
-        >
+        <Button type="text" icon={<MenuOutlined />} onClick={() => setListDrawerOpen(true)}>
           列表
         </Button>
       </div>
@@ -99,10 +85,8 @@ export const MobileShotPlayer: React.FC<MobileShotPlayerProps> = ({
               label: '播放',
               children: (
                 <div className="flex flex-col h-full p-3">
-                  {/* 视频播放器 */}
                   <Card className="flex-1 flex flex-col" bodyStyle={{ padding: 0, flex: 1 }}>
-                    <div className="relative w-full h-full bg-black flex items-center justify-center"
-003e
+                    <div className="relative w-full h-full bg-black flex items-center justify-center">
                       {loading ? (
                         <Spin />
                       ) : currentVideoUrl ? (
@@ -118,37 +102,30 @@ export const MobileShotPlayer: React.FC<MobileShotPlayerProps> = ({
                       ) : (
                         <div className="text-white/60 text-sm">暂无视频</div>
                       )}
-                      
-                      {/* 播放按钮覆盖层 */}
                       {!isPlaying && currentVideoUrl && (
-                        <div 
-                          className="absolute inset-0 flex items-center justify-center bg-black/20"
-                          onClick={onTogglePlay}
-                        >
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20" onClick={onTogglePlay}>
                           <PlayCircleOutlined className="text-5xl text-white/80" />
                         </div>
                       )}
                     </div>
                   </Card>
-                  
-                  {/* 当前分镜信息 */}
+
                   {selectedShot && (
                     <div className="mt-3 bg-white p-3 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div className="font-medium truncate">
                           {String(selectedShot.index || 0).padStart(2, '0')} · {selectedShot.title}
                         </div>
-                        <Tag 
+                        <Tag
                           color={
-                            selectedShot.status === 'ready' ? 'success' : 
-                            selectedShot.status === 'generating' ? 'processing' : 'default'
+                            selectedShot.status === 'ready' ? 'success' : selectedShot.status === 'generating' ? 'processing' : 'default'
                           }
-                          size="small"
+                          
                         >
-                          {selectedShot.status === 'ready' ? '已就绪' : 
-                           selectedShot.status === 'generating' ? '生成中' : '待生成'}
+                          {selectedShot.status === 'ready' ? '已就绪' : selectedShot.status === 'generating' ? '生成中' : '待生成'}
                         </Tag>
-                      </div>                    </div>
+                      </div>
+                    </div>
                   )}
                 </div>
               ),
@@ -175,8 +152,7 @@ export const MobileShotPlayer: React.FC<MobileShotPlayerProps> = ({
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium truncate">{shot.title}</div>
                             <div className="text-xs text-gray-500">
-                              {shot.status === 'ready' ? '✓ 已就绪' : 
-                               shot.status === 'generating' ? '⏳ 生成中' : '○ 待生成'}
+                              {shot.status === 'ready' ? '已就绪' : shot.status === 'generating' ? '生成中' : '待生成'}
                             </div>
                           </div>
                         </div>
@@ -203,31 +179,19 @@ export const MobileShotPlayer: React.FC<MobileShotPlayerProps> = ({
         <div className="text-sm text-gray-600">
           {selectedShot && `${String(selectedShot.index || 0).padStart(2, '0')} / ${String(visibleShots.length).padStart(2, '0')}`}
         </div>
-        <Button
-          type="text"
-          icon={<SettingOutlined />}
-          onClick={() => setSettingsDrawerOpen(true)}
-        >
+        <Button type="text" icon={<SettingOutlined />} onClick={() => setSettingsDrawerOpen(true)}>
           设置
         </Button>
       </div>
 
       {/* 分镜列表抽屉 */}
-      <Drawer
-        title="分镜列表"
-        placement="right"
-        onClose={() => setListDrawerOpen(false)}
-        open={listDrawerOpen}
-        width="80vw"
-      >
+      <Drawer title="分镜列表" placement="right" onClose={() => setListDrawerOpen(false)} open={listDrawerOpen} width="80vw">
         <List
           dataSource={visibleShots}
           renderItem={(shot) => (
             <List.Item
               key={shot.id}
-              className={`cursor-pointer hover:bg-gray-100 ${
-                selectedShotId === shot.id ? 'bg-blue-50' : ''
-              }`}
+              className={`cursor-pointer hover:bg-gray-100 ${selectedShotId === shot.id ? 'bg-blue-50' : ''}`}
               onClick={() => {
                 onSelectShot(shot.id)
                 setListDrawerOpen(false)
@@ -239,15 +203,11 @@ export const MobileShotPlayer: React.FC<MobileShotPlayerProps> = ({
                 </div>
                 <div className="flex-1">
                   <div className="font-medium">{shot.title}</div>
-                  <Tag 
-                    size="small"
-                    color={
-                      shot.status === 'ready' ? 'success' : 
-                      shot.status === 'generating' ? 'processing' : 'default'
-                    }
+                  <Tag
+                    
+                    color={shot.status === 'ready' ? 'success' : shot.status === 'generating' ? 'processing' : 'default'}
                   >
-                    {shot.status === 'ready' ? '已就绪' : 
-                     shot.status === 'generating' ? '生成中' : '待生成'}
+                    {shot.status === 'ready' ? '已就绪' : shot.status === 'generating' ? '生成中' : '待生成'}
                   </Tag>
                 </div>
               </div>
@@ -257,35 +217,19 @@ export const MobileShotPlayer: React.FC<MobileShotPlayerProps> = ({
       </Drawer>
 
       {/* 设置抽屉 */}
-      <Drawer
-        title="播放设置"
-        placement="bottom"
-        onClose={() => setSettingsDrawerOpen(false)}
-        open={settingsDrawerOpen}
-        height="50vh"
-      >
+      <Drawer title="播放设置" placement="bottom" onClose={() => setSettingsDrawerOpen(false)} open={settingsDrawerOpen} height="50vh">
         <div className="space-y-4">
           <div>
             <div className="text-sm font-medium mb-2">播放速度</div>
-            <Segmented
-              options={['0.5x', '1x', '1.5x', '2x']}
-              defaultValue="1x"
-              block
-            />
+            <div className="flex gap-2">
+              {['0.5x', '1x', '1.5x', '2x'].map((rate) => (
+                <Button key={rate} type="default" block>
+                  {rate}
+                </Button>
+              ))}
+            </div>
           </div>
-          
-          <div>
-            <div className="text-sm font-medium mb-2">筛选显示</div>
-            <Segmented
-              options={['全部', '已就绪', '生成中', '待生成']}
-              defaultValue="全部"
-              block
-            />
-          </div>
-          
-          <div className="text-xs text-gray-500 mt-4">
-            提示：左右滑动可快速切换分镜
-          </div>
+          <div className="text-xs text-gray-500 mt-4">提示：左右滑动可快速切换分镜</div>
         </div>
       </Drawer>
     </div>
