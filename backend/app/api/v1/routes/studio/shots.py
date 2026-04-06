@@ -256,6 +256,40 @@ async def delete_shot(
 
 
 @router.get(
+    "/{shot_id}/video",
+    response_model=ApiResponse[dict],
+    summary="获取镜头视频播放URL",
+)
+async def get_shot_video_url(
+    shot_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> ApiResponse[dict]:
+    """返回镜头的视频播放URL，可直接用于播放器"""
+    from sqlalchemy import select
+    from app.models.studio import Shot, FileItem
+    
+    stmt = select(Shot).where(Shot.id == shot_id)
+    result = await db.execute(stmt)
+    shot = result.scalar_one_or_none()
+    
+    if not shot:
+        raise HTTPException(status_code=404, detail="Shot not found")
+    
+    if not shot.generated_video_file_id:
+        return success_response({"has_video": False, "url": None})
+    
+    file_obj = await db.get(FileItem, shot.generated_video_file_id)
+    if not file_obj:
+        return success_response({"has_video": False, "url": None})
+    
+    return success_response({
+        "has_video": True,
+        "url": file_obj.storage_key if file_obj.storage_key.startswith("http") else None,
+        "file_id": shot.generated_video_file_id
+    })
+
+
+@router.get(
     "/{shot_id}/linked-assets",
     response_model=ApiResponse[PaginatedData[ShotLinkedAssetItem]],
     summary="获取镜头关联的角色/道具/场景/服装（分页）",

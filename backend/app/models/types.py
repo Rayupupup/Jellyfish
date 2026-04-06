@@ -14,6 +14,8 @@ class ProjectStyle(str, Enum):
     anime_3d = "动漫3D"
     guoman = "国漫"
     ink_wash = "水墨画"
+    ancient = "古风"  # 新增
+    realism = "现实主义"  # 新增
 
 
 class ProjectVisualStyle(str, Enum):
@@ -21,6 +23,7 @@ class ProjectVisualStyle(str, Enum):
 
     live_action = "现实"
     anime = "动漫"
+    real_person = "真人"  # 新增
 
 
 class ChapterStatus(str, Enum):
