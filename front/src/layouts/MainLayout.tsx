@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react'
-import { Layout, Menu, theme, Dropdown, Space, Avatar, Select, Breadcrumb } from 'antd'
+import React, { useEffect, useMemo } from 'react'
+import { Layout, Menu, theme, Dropdown, Space, Avatar, Select, Breadcrumb, Drawer, Button } from 'antd'
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -9,10 +9,12 @@ import {
   PictureOutlined,
   FileTextOutlined,
   ApiOutlined,
+  MenuOutlined,
 } from '@ant-design/icons'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/useAppStore'
 import { useTranslation } from 'react-i18next'
+import { useMobile } from '../hooks/useMobile'
 
 const { Header, Sider, Content } = Layout
 
@@ -21,9 +23,17 @@ const MainLayout: React.FC = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const { token } = theme.useToken()
+  const isMobile = useMobile(768)
 
   const collapsed = useAppStore((state) => state.siderCollapsed)
   const toggleCollapsed = useAppStore((state) => state.toggleSider)
+  
+  // 移动端自动收起侧边栏
+  useEffect(() => {
+    if (isMobile && !collapsed) {
+      toggleCollapsed()
+    }
+  }, [isMobile, collapsed, toggleCollapsed])
   const user = useAppStore((state) => state.user)
   const language = useAppStore((state) => state.language)
   const setLanguage = useAppStore((state) => state.setLanguage)
@@ -143,6 +153,9 @@ const MainLayout: React.FC = () => {
     },
   ]
 
+  // 移动端菜单抽屉状态
+  const [mobileDrawerOpen, setMobileDrawerOpen] = React.useState(false)
+
   return (
     <Layout
       style={{
@@ -206,12 +219,22 @@ const MainLayout: React.FC = () => {
           }}
         >
           <Space size="middle" className="flex-1 min-w-0">
-            <span
-              className="cursor-pointer text-xl shrink-0"
-              onClick={toggleCollapsed}
-            >
-              {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            </span>
+            {/* 移动端显示菜单按钮 */}
+            {isMobile ? (
+              <span
+                className="cursor-pointer text-xl shrink-0"
+                onClick={() => setMobileDrawerOpen(true)}
+              >
+                <MenuOutlined /
+              </span>
+            ) : (
+              <span
+                className="cursor-pointer text-xl shrink-0"
+                onClick={toggleCollapsed}
+              >
+                {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              </span>
+            )}
             <Breadcrumb
               items={breadcrumbItems}
               className="hidden sm:block"
@@ -220,18 +243,19 @@ const MainLayout: React.FC = () => {
           </Space>
 
           <Space size="middle">
-            <Select
-              size="small"
-              value={language}
-              style={{ width: 120 }}
-              onChange={(value) => {
-                setLanguage(value)
-                void i18n.changeLanguage(value)
-                window.localStorage.setItem('jellyfish_language', value)
-                document.documentElement.lang = value === 'en-US' ? 'en' : 'zh-CN'
-              }}
-              options={[
-                { label: t('lang.zh'), value: 'zh-CN' },
+            {!isMobile && (
+              <Select
+                size="small"
+                value={language}
+                style={{ width: 120 }}
+                onChange={(value) => {
+                  setLanguage(value)
+                  void i18n.changeLanguage(value)
+                  window.localStorage.setItem('jellyfish_language', value)
+                  document.documentElement.lang = value === 'en-US' ? 'en' : 'zh-CN'
+                }}
+                options={[
+                  { label: t('lang.zh'), value: 'zh-CN' },
                 { label: t('lang.en'), value: 'en-US' },
               ]}
             />
@@ -270,6 +294,49 @@ const MainLayout: React.FC = () => {
           </div>
         </Content>
       </Layout>
+
+      {/* 移动端侧边栏抽屉 */}
+      <Drawer
+        title={
+          <div className="flex items-center gap-2">
+            <img src="/logo.svg" alt="Jellyfish" className="w-8 h-8" />
+            <div>
+              <div className="text-base font-semibold">{t('title')}</div>
+              <div className="text-xs text-gray-500">{t('subtitle')}</div>
+            </div>
+          </div>
+        }
+        placement="left"
+        onClose={() => setMobileDrawerOpen(false)}
+        open={mobileDrawerOpen}
+        width={280}
+        className="mobile-nav-drawer"
+      >
+        <Menu
+          mode="inline"
+          selectedKeys={selectedKeys}
+          items={menuItems}
+          onClick={() => setMobileDrawerOpen(false)}
+          style={{ borderRight: 'none' }}
+        />
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
+          <Select
+            size="small"
+            value={language}
+            style={{ width: '100%' }}
+            onChange={(value) => {
+              setLanguage(value)
+              void i18n.changeLanguage(value)
+              window.localStorage.setItem('jellyfish_language', value)
+              document.documentElement.lang = value === 'en-US' ? 'en' : 'zh-CN'
+            }}
+            options={[
+              { label: t('lang.zh'), value: 'zh-CN' },
+              { label: t('lang.en'), value: 'en-US' },
+            ]}
+          />
+        </div>
+      </Drawer>
     </Layout>
   )
 }
