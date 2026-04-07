@@ -127,6 +127,18 @@ async def get_shot_assets_overview(
     pending_count = sum(1 for item in items if item.candidate_status == ShotCandidateStatus.pending.value)
     ignored_count = sum(1 for item in items if item.candidate_status == ShotCandidateStatus.ignored.value)
 
+    # Get video info
+    video_info = None
+    if shot.generated_video_file_id:
+        from app.models.studio import FileItem
+        video_file = await db.get(FileItem, shot.generated_video_file_id)
+        if video_file:
+            video_info = {
+                "file_id": shot.generated_video_file_id,
+                "url": video_file.storage_key if video_file.storage_key else None,
+                "status": "ready" if shot.generated_video_file_id else None,
+            }
+
     return ShotAssetsOverviewRead(
         shot_id=shot.id,
         skip_extraction=bool(shot.skip_extraction),
@@ -138,4 +150,5 @@ async def get_shot_assets_overview(
             total_count=len(items),
         ),
         items=items,
+        video=video_info,
     )

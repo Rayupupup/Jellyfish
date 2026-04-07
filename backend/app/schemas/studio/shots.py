@@ -289,9 +289,16 @@ class ShotAssetsOverviewSummary(BaseModel):
     total_count: int = Field(..., description="总项数（含 ignored）")
 
 
+class ShotVideoInfo(BaseModel):
+    file_id: str | None = Field(None, description="视频文件 ID")
+    url: str | None = Field(None, description="视频播放 URL")
+    status: str | None = Field(None, description="视频状态")
+
+
 class ShotAssetsOverviewRead(BaseModel):
     shot_id: str = Field(..., description="镜头 ID")
     skip_extraction: bool = Field(..., description="是否明确跳过提取")
     status: ShotStatus = Field(..., description="镜头流程状态")
     summary: ShotAssetsOverviewSummary = Field(..., description="总览统计")
     items: list[ShotAssetOverviewItem] = Field(default_factory=list, description="资产总览项")
+    video: ShotVideoInfo | None = Field(None, description="视频信息")
