@@ -194,27 +194,20 @@ async def build_download_response(
     file_item = await get_or_404(db, FileItem, file_id, detail=entity_not_found("File"))
     
     storage_key = file_item.storage_key
-    filename = Path(storage_key).name or "download"
-    media_type = _resolve_download_media_type(filename)
     
-    # 如果 storage_key 是完整 URL（外部存储），获取内容后返回
+    # 如果 storage_key 是完整 URL（外部存储），使用307重定向
     if storage_key.startswith(("http://", "https://")):
-        import httpx
-        async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
-            response = await client.get(storage_key)
-            response.raise_for_status()
-            content = response.content
-        
-        content_disposition = f"inline; filename*=UTF-8''{quote(filename)}"
-        return StreamingResponse(
-            iter([content]),
-            media_type=media_type,
-            headers={"Content-Disposition": content_disposition},
-        )
+        response = RedirectResponse(url=storage_key, status_code=307)
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Access-Control-Expose-Headers"] = "Location"
+        return response
     
     # 否则从本地 S3 下载
+    filename = Path(storage_key).name or "download"
+    media_type = _resolve_download_media_type(filename)
     content = await storage.download_file(key=storage_key)
     content_disposition = f"attachment; filename*=UTF-8''{quote(filename)}"
+    from fastapi.responses import StreamingResponse
     return StreamingResponse(
         iter([content]),
         media_type=media_type,
