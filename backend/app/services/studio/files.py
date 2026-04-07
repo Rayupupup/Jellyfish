@@ -189,8 +189,8 @@ async def build_download_response(
     file_id: str,
 ):
     """根据 file_id 构建下载响应。"""
-    from fastapi.responses import RedirectResponse, JSONResponse
-    from fastapi import Request
+    import httpx
+    from fastapi.responses import StreamingResponse
     
     file_item = await get_or_404(db, FileItem, file_id, detail=entity_not_found("File"))
     
@@ -198,19 +198,27 @@ async def build_download_response(
     filename = Path(storage_key).name or "download"
     media_type = _resolve_download_media_type(filename)
     
-    # 如果 storage_key 是完整 URL（外部存储），返回JSON格式的URL
-    # 前端可以直接使用这个URL进行视频播放
+    # 如果 storage_key 是完整 URL（外部存储），通过 httpx 代理内容
     if storage_key.startswith(("http://", "https://")):
-        return JSONResponse(content={
-            "code": 200,
-            "url": storage_key,
-            "message": "success"
-        })
+        async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
+            response = await client.get(storage_key)
+            response.raise_for_status()
+            content = response.content
+        
+        content_disposition = f"inline; filename*=UTF-8''{quote(filename)}"
+        return StreamingResponse(
+            iter([content]),
+            media_type=media_type,
+            headers={
+                "Content-Disposition": content_disposition,
+                "Content-Length": str(len(content)),
+                "Accept-Ranges": "bytes",
+            },
+        )
     
     # 否则从本地 S3 下载
     content = await storage.download_file(key=storage_key)
     content_disposition = f"attachment; filename*=UTF-8''{quote(filename)}"
-    from fastapi.responses import StreamingResponse
     return StreamingResponse(
         iter([content]),
         media_type=media_type,
