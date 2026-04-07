@@ -203,15 +203,16 @@ async def build_download_response(
     # 如果 storage_key 是完整 URL（外部存储），下载到临时文件后用FileResponse服务
     if storage_key.startswith(("http://", "https://")):
         import httpx
+        import os
         # 创建临时文件
         tmp_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
 
-        # 下载视频到临时文件
-        async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
-            response = await client.get(storage_key)
+        # 同步下载视频到临时文件
+        with httpx.SyncClient(follow_redirects=True, timeout=60.0) as client:
+            response = client.get(storage_key)
             response.raise_for_status()
-            async with aiofiles.open(tmp_path, 'wb') as f:
-                await f.write(response.content)
+            with open(tmp_path, 'wb') as f:
+                f.write(response.content)
 
         # 使用FileResponse服务，它同时支持GET和HEAD
         return FileResponse(
