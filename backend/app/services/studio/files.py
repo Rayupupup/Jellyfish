@@ -189,33 +189,38 @@ async def build_download_response(
     file_id: str,
 ):
     """根据 file_id 构建下载响应。"""
-    import httpx
-    from fastapi.responses import StreamingResponse
-    
+    import tempfile
+    import aiofiles
+    from fastapi.responses import FileResponse, StreamingResponse
+    from fastapi.background import BackgroundTask
+
     file_item = await get_or_404(db, FileItem, file_id, detail=entity_not_found("File"))
-    
+
     storage_key = file_item.storage_key
     filename = Path(storage_key).name or "download"
     media_type = _resolve_download_media_type(filename)
-    
-    # 如果 storage_key 是完整 URL（外部存储），通过 httpx 代理内容
+
+    # 如果 storage_key 是完整 URL（外部存储），下载到临时文件后用FileResponse服务
     if storage_key.startswith(("http://", "https://")):
+        import httpx
+        # 创建临时文件
+        tmp_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
+
+        # 下载视频到临时文件
         async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
             response = await client.get(storage_key)
             response.raise_for_status()
-            content = response.content
-        
-        content_disposition = f"inline; filename*=UTF-8''{quote(filename)}"
-        return StreamingResponse(
-            iter([content]),
+            async with aiofiles.open(tmp_path, 'wb') as f:
+                await f.write(response.content)
+
+        # 使用FileResponse服务，它同时支持GET和HEAD
+        return FileResponse(
+            path=tmp_path,
+            filename=filename,
             media_type=media_type,
-            headers={
-                "Content-Disposition": content_disposition,
-                "Content-Length": str(len(content)),
-                "Accept-Ranges": "bytes",
-            },
+            background=BackgroundTask(_cleanup_temp_file, tmp_path),
         )
-    
+
     # 否则从本地 S3 下载
     content = await storage.download_file(key=storage_key)
     content_disposition = f"attachment; filename*=UTF-8''{quote(filename)}"
@@ -224,6 +229,15 @@ async def build_download_response(
         media_type=media_type,
         headers={"Content-Disposition": content_disposition},
     )
+
+
+async def _cleanup_temp_file(path: str):
+    """清理临时文件"""
+    import os
+    try:
+        os.unlink(path)
+    except:
+        pass
 
 
 async def get_storage_info(
