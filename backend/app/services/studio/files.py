@@ -193,15 +193,27 @@ async def build_download_response(
     
     file_item = await get_or_404(db, FileItem, file_id, detail=entity_not_found("File"))
     
-    # 如果 storage_key 是完整 URL，直接重定向
-    if file_item.storage_key.startswith(("http://", "https://")):
-        return RedirectResponse(url=file_item.storage_key)
-    
-    # 否则从 S3 下载
-    content = await storage.download_file(key=file_item.storage_key)
-
-    filename = Path(file_item.storage_key).name or "download"
+    storage_key = file_item.storage_key
+    filename = Path(storage_key).name or "download"
     media_type = _resolve_download_media_type(filename)
+    
+    # 如果 storage_key 是完整 URL（外部存储），获取内容后返回
+    if storage_key.startswith(("http://", "https://")):
+        import httpx
+        async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
+            response = await client.get(storage_key)
+            response.raise_for_status()
+            content = response.content
+        
+        content_disposition = f"inline; filename*=UTF-8''{quote(filename)}"
+        return StreamingResponse(
+            iter([content]),
+            media_type=media_type,
+            headers={"Content-Disposition": content_disposition},
+        )
+    
+    # 否则从本地 S3 下载
+    content = await storage.download_file(key=storage_key)
     content_disposition = f"attachment; filename*=UTF-8''{quote(filename)}"
     return StreamingResponse(
         iter([content]),
