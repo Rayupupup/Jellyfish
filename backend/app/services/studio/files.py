@@ -189,22 +189,25 @@ async def build_download_response(
     file_id: str,
 ):
     """根据 file_id 构建下载响应。"""
-    from fastapi.responses import RedirectResponse
+    from fastapi.responses import RedirectResponse, JSONResponse
+    from fastapi import Request
     
     file_item = await get_or_404(db, FileItem, file_id, detail=entity_not_found("File"))
     
     storage_key = file_item.storage_key
-    
-    # 如果 storage_key 是完整 URL（外部存储），使用307重定向
-    if storage_key.startswith(("http://", "https://")):
-        response = RedirectResponse(url=storage_key, status_code=307)
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        response.headers["Access-Control-Expose-Headers"] = "Location"
-        return response
-    
-    # 否则从本地 S3 下载
     filename = Path(storage_key).name or "download"
     media_type = _resolve_download_media_type(filename)
+    
+    # 如果 storage_key 是完整 URL（外部存储），返回JSON格式的URL
+    # 前端可以直接使用这个URL进行视频播放
+    if storage_key.startswith(("http://", "https://")):
+        return JSONResponse(content={
+            "code": 200,
+            "url": storage_key,
+            "message": "success"
+        })
+    
+    # 否则从本地 S3 下载
     content = await storage.download_file(key=storage_key)
     content_disposition = f"attachment; filename*=UTF-8''{quote(filename)}"
     from fastapi.responses import StreamingResponse
