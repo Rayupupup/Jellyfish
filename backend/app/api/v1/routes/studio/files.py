@@ -112,17 +112,6 @@ async def download_file_api(
     return await build_download_response(db, file_id=file_id)
 
 
-@router.head(
-    "/{file_id}/download",
-    summary="获取文件头信息（HEAD）",
-)
-async def download_file_head_api(
-    file_id: str,
-    db: AsyncSession = Depends(get_db),
-):
-    return await build_download_response(db, file_id=file_id)
-
-
 @router.get(
     "/{file_id}/storage-info",
     response_model=ApiResponse[dict],
